@@ -10,7 +10,21 @@ export class TzoneService {
     return Date.now() - lastSeenAt.getTime() <= this.onlineWindowMs;
   }
 
+  private isCanonicalImei(imei: string | null) {
+    return imei !== null && /^\d{15}$/.test(imei);
+  }
+
+  private isTrustedDeviceReading(payload: TzoneReadingPayload) {
+    return (
+      payload.protocolType === 'binary' &&
+      this.isCanonicalImei(payload.imei) &&
+      payload.rawHex.startsWith('545A')
+    );
+  }
+
   async ingestReading(payload: TzoneReadingPayload) {
+    const trustedReading = this.isTrustedDeviceReading(payload);
+
     const broadcastPayload = {
       imei: payload.imei,
       temperature: payload.temperature,
@@ -23,7 +37,9 @@ export class TzoneService {
     };
 
     if (!isDatabaseConfigured || prisma === null) {
-      tzoneGateway.broadcastReading(broadcastPayload);
+      if (trustedReading) {
+        tzoneGateway.broadcastReading(broadcastPayload);
+      }
 
       return {
         device: null,
@@ -35,7 +51,7 @@ export class TzoneService {
     }
 
     const device =
-      payload.imei === null
+      !trustedReading || payload.imei === null
         ? null
         : await prisma.tzoneDevice.upsert({
             where: { imei: payload.imei },
@@ -63,7 +79,9 @@ export class TzoneService {
       }
     });
 
-    tzoneGateway.broadcastReading(broadcastPayload);
+    if (trustedReading) {
+      tzoneGateway.broadcastReading(broadcastPayload);
+    }
 
     return { device, reading };
   }
@@ -73,10 +91,12 @@ export class TzoneService {
       return [];
     }
 
-    return prisma.tzoneReading.findMany({
+    const readings = await prisma.tzoneReading.findMany({
       orderBy: { receivedAt: 'desc' },
-      take: limit
+      take: limit * 3
     });
+
+    return readings.filter((reading) => this.isCanonicalImei(reading.imei)).slice(0, limit);
   }
 
   async getDevices(): Promise<TzoneDeviceSummary[]> {
@@ -94,7 +114,9 @@ export class TzoneService {
       }
     });
 
-    return devices.map((device: (typeof devices)[number]) => {
+    return devices
+      .filter((device) => this.isCanonicalImei(device.imei))
+      .map((device: (typeof devices)[number]) => {
       const isOnline = this.isDeviceOnline(device.lastSeenAt);
 
       return {
@@ -123,11 +145,13 @@ export class TzoneService {
       return [];
     }
 
-    return prisma.tzoneReading.findMany({
+    const readings = await prisma.tzoneReading.findMany({
       where: { imei },
       orderBy: { receivedAt: 'desc' },
       take: limit
     });
+
+    return readings.filter((reading) => this.isCanonicalImei(reading.imei));
   }
 }
 

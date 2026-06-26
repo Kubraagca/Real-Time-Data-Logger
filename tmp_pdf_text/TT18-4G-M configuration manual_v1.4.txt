@@ -1,0 +1,210 @@
+--- PAGE 1 ---
+Configureinstruction:
+1.TheTT18-4G-McanworkonLTEandGSMnetworks.PleaseconfirmwithyourSIMcard
+suppliertochoosetheSIMcardcansupportatleastoneofthethreenetworks.AndsomeSIM
+cardhavetosetAPN,pleaseconfirmwithyourSIMcardsuppliertogettheAPNinformation.
+YoualsocancontactwithTzonetogethelp.
+2.TheTT18-4G-Mcanbesetviatwoways,onewayistousetheconfiguresoftware,theother
+wayistosetviaserverdownwardcommand.Pleasefollowtheguidebelow.
+3.PleasenotetodotheRTCtimeandACKsettingfunctiononyourserver,ifyousetthe
+TT18-4G-Msenddatatoyourcloud.
+RTCtimesetting
+FormatoftheserversetTT18-4G-MRTCtime：@UTC,yyyy-MM-ddHH:mm:ss#
+Forexample：@UTC,2021-11-2402:56:43#
+*pleasenotethetimesettingshouldbeUTC+0time,andwesuggesttosettheRTCtimeevery
+timewhentheserverreceiveddatafromTT18-4G-M
+ACKsetting
+FormatoftheseversetACK：@ACK,Packetindex(Hexconvertedintodecimal)#
+Forexample：@ACK,35#
+*TheACKfunctionistomakesureyourserverreceivedtheTT18-4G-Mdata.Onlyafterreceived
+theACKfromserver,thentheTT18-4G-Mwillsendthenextdata.
+4.PleasenotewhenconnecttheTT18-4G-MUSBtoconfigureorcharge,theTT18-4G-Mwillnot
+storageorsenddata.
+
+--- PAGE 2 ---
+Note:SupportforWindows10ornewer.
+Ⅰ.ConfiguretheTT18-4G-Mviaconfiguresoftware
+1.pleaseusetheUSBcable(whichalongwiththeTT18-4G-M),toconnecttheTT18-4G-Mwith
+windowscomputertoconfigure.
+2.click“Read”toreadalloftheconfigurationinformationofTT18-4G-M.
+3.Afterfinishedconfiguring,pleaseclick“Save”tosavethesetting：
+
+--- PAGE 3 ---
+4.IfyouneedtocopytheIDofthemachine,youcanclickthecopyIDinthepicturebelow：
+5.Configurationparameters：
+（1）Basicinformation：
+ID：UniqueIDofdevice
+Devicetime：thecomputertime
+（2）NetworkSetting：
+APN/Username/Password/APNType/AuthType：
+
+--- PAGE 4 ---
+SomeSIMcardneedsettheAPN/Username/Password/APNType/AuthTypetowork.Please
+confirmwithyourSIMcardsupplieraboutit,oryoucancontactwithTzoneforhelp.
+DNS：Domainnameresolution
+（3）Statussetting
+DeviceStatus：Cansetturnonorturnoffthedevice
+FlightMode：CansettheTT18-4G-Mintoorquitflightmode.
+Pleasenoteonlywhenthedevicestatusisturnon,thencansettheflightmode.
+Dataupload/storageinterval：canbesetfrom1to60mins,thedefaultis30mins
+ButtonShutdown：tosettheTT18-4G-Menable/disabletobeturnedoffviaphysicalbutton.
+（4）Serverconnectionsetting：
+IP/Domain：youcansetyourserverIpordomain
+TheTzoneserverdomainis:g.cloud.tzonedigital.cn
+port：youcansetyourserverport，theportrangeisfrom1to65535
+TheTzoneserverdomianis:18801
+TCP/UDP:canchoosethedatatransmissionasTCPorUDP
+（5）Calibrationsetting：
+Temperature：temperaturecalibration,rangefrom-5to5℃,
+Humidity：humiditycalibration,rangefrom-10to10%;
+（6）Othersettings：
+command：canfollowthecommandlistbelowtoset
+Forexample：*000000,018,10#
+Cleardataflash：clearallofthedatastoredinTT18-4G-M
+initialization：recoverythedevicetofactorysetting
+Ⅱ．Serverdownwardcommandssetting
+Formatofserverdownwardcommands：
+Startbits（1byte）+Typeofdata（X1）+Delimiter（1byte）+Command（X2）+Delimiter
+（1byte）+Stopbits（1byte）+Endmark（2byte）
+1.Startbits：@；
+2.Typeofdata：CMD；
+3.Delimiter：，；
+4.Command：referthecommandslistbelow；
+5.Delimiter：，；
+6.Stopbits：#；
+7.End：\r\n(0x0D,0x0A)；
+
+--- PAGE 5 ---
+Forexample：@CMD,*000000,018,10#,#
+Setthedataupload/storageinterval
+FormatofTT18-4G-Mreply：
+Startbits（2byte）+Packetlength（2byte）+Protocolsnumber（2byte）+Hardwaretype
+（2byte）+Firmwareversion（4byte）+IMEI（8byte）+RTCtimedate（6byte）+Typeof
+downwardcommand（1byte）+downwardcommand（2byte）+Result（1byte）+Command
+information（Xbyte）+Packetindex（2byte）+CRC（2byte）+Stopbits（2byte）
+1.Startbits：（TZ：545A）
+2.Packetlength：ThebyteslengthfromthestartatprotocolnumbertotheendattheCRC.
+3.Protocolnumber：$D
+5.Hardwaretype：04H07H
+6.Firmwareversion：4byte，forexample01H06H00H00Hmeansthefirmwareis1.06
+7.IMEI:8byte，ignoretheupperfourbitsofthefirstbyte.Fortherest,every4bitmeansa
+number.Forexample08H66H10H40H26H49H19H96HmeanstheIMEIis
+866104026491996
+8.RTCtimedate：6byte，thedataupload/storageRTCtimeanddate，eachbytemeans
+year/month/day/hour/min/sec
+9.Typeofdownwardcommand：00Hmeanswritecommand，01Hmeansreadcommand
+10.Downwardcommand：commandinformation
+11.Result：theresultofreadorwritecommand，1bit,00Hmeansreadorwritesuccessful，
+05Hmeansdonotsupportthiscommand，08Hmeansreadorwritefailed
+12.Commandinformation：Ifitiswritecommand，thecommandinformationwillbenull.
+Ifitisreadcommand，itwillshowdifferentcommands,theformatisASCII,different
+commandisseparatedby“,”.Fordetails,pleasereferthecommandlist
+Forexample.IfitsisreadcommandofIP/Domain,thecommandinformationwillbe
+1,t-gateway.tzonedigital.cn,54929
+13.Packetindex：Accumulatefrom1to9999
+14.CRC：Thecheckedcontentisfromthe“protocolnumber”totheendat“CRC”,
+including“protocolnumber”,excluding“CRC”，MSBfirst；
+15.Stopbits：0DH0AH；
+Ⅲ．Commandlist
+NO. Instruction Format Note
+005 Setworkingmodel *000000,005,X# X=0,Turnoff(default);
+X=1,Turnon;
+SetRTCtime *000000,006,year,month,day,hour,
+minute,second#SetthedeviceRTCtime.
+Forexample：
+*000000,006,16,01,11,10,46,30#
+Year:16
+
+--- PAGE 6 ---
+Month:1
+Day:11
+Hour:10
+Minute:46
+Second:3
+Note:MustbesettoUTCtime
+008 Extendsetting *000000,008,ABCDEFG# C=0,disablebuttonpoweroff
+function
+C=1,buttonpowerofffunction
+(default)
+Note:Thedevicesenddatatothe
+servereverytime,theservermust
+respond@ACK,Packetindex
+(Hexconvertedintodecimal)#to
+thedevice,thenthedevicewill
+continuetosendnextdatatothe
+serve,pleaserefertothedata
+protocolforpacketindex.
+A/C/D/E/FG=0，B=1
+011 SetAPN,Username,Password *000000,011,Apntype,Authtype,
+APN,Username,Password#Apntype:
+0-IP(default),
+1-IPV6,
+2-IPV4V6,
+3-Non-IP,
+Authtype:
+0-NONE(default),
+1-PAP,
+2-CHAP
+APN:APNstring(must<28
+chars)
+Username:Yourusername(must
+<28chars)
+Password:Yourpassword(must
+<28chars)
+*Ifthereisnousernameor
+password,pleaseleftitblank.
+Forexample:
+*000000,011,CMNET,,#(Thereis
+nousernameorpassword)
+014 SetDNS *000000,014,X,DNS1,DNS2# X=0,disableDNSfunction
+(default),
+X=1,enableDNSfunction,
+DNS:DomainServer;
+xxx.xxx.xxx.xxx
+
+--- PAGE 7 ---
+015 SetIPAddress&portnumber *000000,015,X,IP,PORT# X=0UsingIPtoconnecttheserver
+X=1UsingDNtoconnectthe
+server
+IP:xxx.xxx.xxx.xxx
+DN:(domainname)
+www.xxx.com
+PORT:[1,65535]
+DefaultIPport：
+g.cloud.tzonedigital.cn,18801
+018 Setthedatareportingintervalsin
+turnonorflightmode*000000,018,X# X:[5,1440]Thedatareporting
+interval
+(Unit:min,default:30)
+019 SettheGPRSmode *000000,019,X# X=0,UsetheUDPmode
+X=1,UsetheTCPmode(default)
+050 Temperatureandhumidity
+calibration*000000,050,X,A,B# X=0,disablethisfunction(default);
+X=1,enable
+A:Temperaturecalibrationvalue,
+B:Humiditycalibrationvalue
+positivenumbermeansplusthe
+calibrationvalue;negativenumber
+meansminusthecalibrationvalue;
+thetemperatureunitis℃,the
+humidityunitis%
+060 SetFlightmode *000000,060,X,Y,Z# X=0,Disablethisfunction;
+X=1,Enablethisfunction
+Y:intoflightmodetime,
+Unit:min,[0,65535];
+Thedevicewillturntoflightmode
+afterthissettingtime；
+Z:Outofflightmodetime,
+Unit:min,[0,65535];
+Thedevicewillturnoutfromflight
+modeafterthissettingtime
+Note:Whenthedeviceturntoflight
+mode,itwillunablethenetwork
+connection,butstillrecordingthe
+temperature,humidityandlight
+information
+500 Cleardataflash *000000,500# Clearhistoryintheflashmemory
+990 Initialization *000000,990,099# Turnthedevicetobefactory
+defaultsettings
+991 Reboot *000000,991# Thedevicewillreboot
+

@@ -1,0 +1,532 @@
+--- PAGE 1 ---
+1TT184GSeriesDataProtocolofTCPCommunication
+DocumentRevisionHistory
+Date Author Version Description
+2025/7/29Lisa V2.0Newdocumentstructureandmoredetailedpresentationwithtables
+andimages.
+
+--- PAGE 2 ---
+2TableofContents
+1.TheInteractionProcessandRelatedRequestsorReplies..........................................................................................3
+1.1TheInteractionProcessBetweentheServerandtheDevice...........................................................................3
+1.2DetailedDescriptionoftheInteractionProcess...............................................................................................3
+1.3TheBasicFormatoftheServerRequestsorReplies.......................................................................................4
+1.4AListofServerRequestsorReplies................................................................................................................4
+1.5BasicFormatoftheDeviceRequestsorReplies..............................................................................................5
+1.6ListofDeviceRequestsorReplies...................................................................................................................6
+2.DetailedDescriptionofAllRequestsorRepliesBetweentheDeviceandtheServer..............................................6
+2.1ServerRTCSynchronizationCommand...........................................................................................................6
+2.2DeviceBasicDataSending...............................................................................................................................7
+2.3ServerACKResponse.....................................................................................................................................14
+2.4ServerDownlinkCommand...........................................................................................................................14
+2.5Device'sGeneralReplytoDownlinkCommand............................................................................................15
+2.6ChecksumCalculation....................................................................................................................................17
+
+--- PAGE 3 ---
+31.TheInteractionProcessandRelatedRequestsorReplies
+1.1TheInteractionProcessBetweentheServerandtheDevice
+1.2DetailedDescriptionoftheInteractionProcess
+Thefollowingisbasedonatypicalserver-sideimplementation.Theactualserver-sidecanchoosetoimplementallor
+partofthefunctionalitywithoutviolatingthedevice-sidelogic.
+1."1-Deviceconnectstoserver":Whenthereportingtimeintervalisreachedortriggeredbyotherevents,the
+deviceconnectstoserver.
+2."2-ServersendsRTCsynchronizationcommand":Afterbeingconnectedbythedevice,theservercansenda
+commandtosynchronizethedevice'sRTCtime.Thedevicedoesnotneedtowaitfortheserver'sRTC
+synchronizationcommandtosenddata.
+3."3-Devicesendsdataorheartbeat":Afterthedeviceconnectstotheserver,itstartstoreportbasicdataorheartbeat
+datatotheserver(TT184Ghavenotheartbeatdata).
+4.Theserverjudgestheconditionof"whethertosenddownlinkcommand".Afterreceivingandprocessingthesent
+
+--- PAGE 4 ---
+4data,theserverchecksthedownlinkcommandqueuetodetermine"whethertosenddownlinkcommand".Ifyes,
+execute"4-Serversendsdownlinkcommand";ifno,execute"6-ServersendsACKreply".
+5."4-Serversendsdownlinkcommand":Theservertakesthecommandattheheadofthedownlinkcommandqueue
+andsendsittothedevice.
+6."5-Devicerepliestodownlinkcommand":Afterreceivingandexecutingthecommand,thedevicereturnsthe
+correspondingreplytotheserver.
+7.Theservercontinuestojudgetheconditionof"whethertosenddownlinkcommand".Ifthejudgmentisyes,it
+cyclicallyexecutessteps4-6above.Exitwhenthejudgmentisno.
+8."6-ServersendsACKreply":TheserverindicatesthatthereisnocommandstoissuebysendingACKresponse,and
+handsovercontroltothedevice.
+9.Thedevicejudgestheconditionof"continuetosenddata".Thedevicechecksthedata-to-sendqueuetodetermine
+whether"continuetosenddata".
+Ifyes,repeat"3-Devicesendsdataorheartbeat".Thenitmayenterthesub-loopofsteps4-6above.After
+exitingthesub-loop,thentojudgewhether"continuetosenddata".
+Ifno,execute"7-Devicedisconnectsfromserver".
+10."7-Devicedisconnectsfromserver".Thedeviceactivelydisconnectsfromtheserver,endingthecommunication
+betweentwosides.Theserverneedstowaitforthenextconnectionfromthedevicetocommunicate.Therefore,
+whentheserverneedstosendadownlinkcommandtothedevice,itcannotissueitimmediatelyandcanonlystore
+itinthedownlinkcommandqueuefirst.
+1.3TheBasicFormatoftheServerRequestsorReplies
+ItisASCIIstringinthefollowingformat:@{keyword},{RE_format}#\r\n
+TheRE_formatoftheserver'sdownlinkcommandsisvariable,andtheRE_formatofotherrequestsorrepliesarefixed,
+pleaserefertothetableinthenextsection
+1.4AListofServerRequestsorReplies
+NO.RequestsorRepliesKeywordRE_format Examples
+1Server RTC
+synchronization
+commandUTCUTCtimeintheformat:
+yyyy-MM-ddHH:mm:ss@UTC,2021-11-24
+02:56:43#\r\n
+2ServerACKreplyACKDecimalmessageserialnumber
+(messageID),range[1,9999],
+withvariablelength@ACK,1035#\r\n
+3Serverdownlink
+command,forsettingCMDRelatedtospecificcommands,
+seedetaileddescriptionlater@CMD,*000000,018,10#,#\r\n
+
+--- PAGE 5 ---
+5orreadingdevice
+1.5BasicFormatoftheDeviceRequestsorReplies
+Themessagepacketofdevicerequestsorrepliesisabytestring,differentfromthecharacterstringofserverpacket.The
+basiccompositionformatofthebytestringmessagebodyis:messageheader+messagebody+messagetail
+Note:
+Fordifferentrequestsorreplies,thelengthsofthemessageheaderandmessagetailarefixed,butthecontentsmay
+vary.
+Fordifferentrequestsorreplies,thelengthandcontentofthemessagecontentaredifferent.Seethedetailed
+descriptionsectionsfordetails.
+DatablockNumber
+ofbytesContent Description
+Startsymbol 2 ‘TZ’Thisistheheaderofeverypacket
+Packetlength 2 VariableThebyteslengthfromthestartatprotocolnumbertotheend
+attheCRC.
+MessageType 2 ‘$$’‘$$’meansthemessagetypeisbasicdatasending
+Hardwaretype 204H07H/
+04H09H/HardwaremodelofTT184G
+0407isTT18-4G-M,0409isTT18-4G-S.
+Firmwareversion4 VariableForexample,03H08H00H00Hindicatesthattheversionis
+3.8.0.0
+
+--- PAGE 6 ---
+61.6ListofDeviceRequestsorReplies
+NO.RequestsorRepliesDescription Dataformat
+1Basicdatasending
+requestGPSdata,LBSdata,Statusdata,WIFI
+dataetc.Basicdatarequestformat,please
+seethedetailedexplanationbelow
+4Device'sgeneralreply
+todownlinkcommandGeneralreplytodownlinkcommands
+forreading/querycommand,reply
+withqueryresult;Forsetting
+command,replywithsettingresultsDevice'sgeneralreplytodownlink
+commandformat,pleaseseethe
+detailedexplanationbelow
+2.DetailedDescriptionofAllRequestsorRepliesBetweentheDeviceandtheServer
+2.1ServerRTCSynchronizationCommand
+Requestformat:@UTC,yyyy-MM-ddHH:mm:ss#
+Example:@UTC,2021-11-2402:56:43#
+Note:ItmustbesettoUTCtime.AnditisrecommendedthattheserversetstheRTCtimeeachtimewhenthedevice
+connectstotheserver;otherwise,theRTCtimemaybeincorrect.ID 8 VariableThehighfourbitsofthefirstbyteareignored,andevery
+other4bitsrepresentacharacter,suchas01H80H32H30H
+00H00H50H98H
+IndicatesthattheIMEIis180323000005098.
+RTCtime 6 variableTheRTCtimewhenthismessageispacked.
+ThesequenceisYearMonthDayHourMinuteSecond
+Forexample,17H05H04H16H34H1EHindicatesthatthe
+timeis:2023/05/0422:52:30
+MessageBody X variableVariabledata
+MessageID 2 variableThevaluerangeofthispartisbetween1and9999
+Checksum 2 variableTheCRC16checksumofbytesfrommessagetypeto
+MessageID.
+StopSymbol 2 0DH0AHIndicatethisframe/packetisfinished
+
+--- PAGE 7 ---
+72.2DeviceBasicDataSending
+2.2.1DataBlocksofMessageFrame
+2.2.2DetailedDescriptionforAllDataBlocks
+DatablockNumber
+ofbytesContent Description
+Startbits2 ‘TZ’Thisistheheaderofeverypacket
+Packetlength2 VariableThebyteslengthfromthestartatprotocolnumbertotheendatthe
+CRC.
+MessageType2 ‘$$’‘$$’meansthemessagetypeisbasicdatasending
+Hardware
+type204H07H/
+04H09H/HardwaremodelofTT184G
+0407isTT18-4G-M,0409isTT18-4G-S.
+Firmware
+version4 VariableForexample,03H08H00H00Hindicatesthattheversionis3.8.0.0
+ID 8 VariableThehighfourbitsofthefirstbyteareignored,andeveryother4bits
+representacharacter,suchas01H80H32H30H00H00H50H98H
+IndicatesthattheIMEIis180323000005098.
+RCTtime
+date6 VariableTheRTCtimewhenthismessageispacked.
+ThesequenceisYearMonthDayHourMinuteSecond
+Forexample,17H05H04H16H34H1EHindicatesthatthetimeis:
+2023/05/0422:52:30
+
+--- PAGE 8 ---
+8GPSdata
+length2 VariableIndicatesthelengthofGPSinformation(unit:byte),ifitis0000H,it
+meansthatthereisnosuchdata
+Status 1 Variablebit0:latitudemark,1=Nnorthlatitude,0=Ssouthlatitude;bit1:
+longitudemark,1=Wwestlongitude,0=Eeastlongitude,otherbitsare
+reserved
+UTCdate
+time6 VariableTheformatisthesameastheRTCdatetime
+longitude4 VariableUnit:degree,HEXformat,thisvalue/1000000isthelatitude,suchas
+0157BF08Hmeans22.527752
+latitude 4 VariableUnit:degree,HEXformat,thisvalue/1000000isthelongitude,suchas
+06CCAEB8Hmeans114.077368
+angle 2 VariableUnit:degree,reserved
+speed 2 VariableUnit:0.1Knots,reserved
+Reserved1A=0 NCReservedforfutureuse.Currently,nobytesisused.
+LBSdata
+length2 VariableGSMLBS’sdatalengthexcludesLBSdatalengthpart.Ifthevalueis
+0,thereisnoLBSdata.
+Thenumber
+ofLBS1VariableThenumberofLSBbasestationsincludedinthispackagedata
+SignalLBS
+information1 VariableIncludinginformationsuchasthetypeofbasestation,SingleLBSbase
+stationinformationlengthandbasestationinformationindication,
+bit7-5meansbasestationtype,
+000B-2Gbasestation,
+010B-NBbasestation,
+100B-CATM1basestation,
+110B-LTEbasestation,
+bit4-0,meansSignalLBSinformationlength
+MCC 2 VariableMobileCountryCode,ignorethefirstdigital,only3digital,0460
+meansthatMCCis460.
+MNC 2 VariableMobileNetworkCode,2or3digital,ifthefirstdigitalis8,MNCis3
+digital.Ifthefirstdigitalis0,MNCis2digital.8756meansthatMNC
+is756.0056means56.
+LAC 2 Variablelocationareacode,hexcode
+0x270x56meansLACis10070
+CELLID 4 VariableCellidentificationcode,4byte,hexcode,
+i.e.01H23H45H67HmeansCELLIDis19088743;
+Inthedataexample:
+LBSlength:00H22H,means34byte;
+ThenumberofLBS：03H,means3;
+ThefirstLBSinformation:
+SignalLBSinformation:0AH，2Gbasestation，Contains10bytesof
+data;
+
+--- PAGE 9 ---
+9MCC:04H60H,460;
+MNC:00H00H,00；;
+LAC:27H93H,10131;
+CELLID:00H00H0FHA1H,4001;
+ThesecondLBSinformation:
+SignalLBSinformation:0AH,2Gbasestation,Contains10bytesof
+data;
+MCC:04H60H,460;
+MNC:00H00H,00;
+LAC:27HB6H,10166;
+CELLID:00H00H15HBBH,5563;
+TheThirdLBSinformation:
+SignalLBSinformation:0AH，2Gbasestation，Contains10bytesof
+data;
+MCC:04H60H,460;
+MNC:00H00H,00;
+LAC:27HB6H,10166;
+CELLID:00H00H12HA3H,4771;
+RxLev 1 VariableReceivedSignalpower,1byte,hexformat,unit:-dbm,supportedby
+2Gbasestations,thisdatadoesnotappearforunsupportedbase
+stations;forexample,52Hmeans-82dbm
+PCI 2 VariablePhysicalCellIdentity,2bytes,hexformat,supportedbyLTEbase
+stations,thisdatadoesnotappearforunsupportedbasestations
+EARFCN 3 VariableEvolvedAbsoluteRadioFrequencyChannel,3bytes,hexformat,
+supportedbyLTEbasestations,thisdatawillnotappearfor
+unsupportedbasestations
+RSRP 1 VariableReferenceSignalReceivedPower(RSRP)indBm.1byte,hexformat,
+unit:-dbm,supportedbyLTEbasestations,thisdatadoesnotappear
+forunsupportedbasestations,suchas52Hmeans-82dbm
+SignalLevel:
+Excellent:RSRP>-85dBm
+Good:RSRP=-85～-95dBm
+Medium:RSRP=-95～-105dBm
+Weak:RSRP=-105～-115dBm
+Rarely:RSRP<-115dB
+Note:NB/CATM1/LTEbasestationsshouldusethisvaluetodetermine
+signalstrength,notCSQvalue
+RSRQ 1 VariableReferenceSignalReceivedQuality(RSRQ)indB.1byte,hexformat,
+unit:-db,supportedbyLTEbasestations,thisdatadoesnotappearfor
+unsupportedbasestations,suchas12Hmeans-18db
+RSSI 1 VariableReceivedsignalstrengthindicatorvalue,1byte,hexformat,unit:
+
+--- PAGE 10 ---
+10-dbm,supportedbyLTEbasestations,thisdatadoesnotappearfor
+unsupportedbasestations,suchas52Hmeans-82dbm
+Reserved2B=0 NCReservedforfutureuse.Currently,nobytesisused.
+Statusdata
+length2 VariableThestatusdatalengthexcluding“Statusdatalength”itself.Ifthispart
+is0,thereisnostatusdata.
+Alarmtype1 VariableThevalueofthisparthasfourpossibilities,
+Temperature/humidityincludedinallthedata.
+0xAAIntervalGPRSdata
+0x10LowbatteryAlarm
+0xA0Temperature/Humidityoverthresholdalarm
+0xA1Temperature/Humiditysensorabnormalalarm
+0xA1Lightsensorbrightanddarkchanges
+Terminal
+information1 VariableBit7-6workmode
+00=Normalworkmode,
+01=Flightmode,
+bit5arereservedforfutureuse.
+Bit4:1pressthebutton
+0Havenotpressthebutton
+Bit3:1Thetemperature/Humiditysensorisabnormal
+0Thetemperature/Humiditysensorisnormal
+Bit2:1Thetemperature/Humidityisoverthreshold
+0Thetemperature/Humidityisnormal
+Bit1:1Thebatterylowvoltage
+0Thebatteryisnormal
+Bit0:1Themachineischarging
+0Themachineisnotcharging
+Network
+signal
+strength1 VariableCSQvalue,Hexcode
+Network
+status1 VariableBit7toBit6arereservedforfutureuse.
+Bit5:1Internetconnectionisestablished
+0Internetconnectionisnotestablished
+Bit4:1GPRSisregisteredsuccessfully
+0GPRSisnotregistered
+Bit3:1TheGSMisinroamingmode
+0TheGSMisinhomenetworkmode
+Bit2:1GSMisregisteredsuccessfully
+0GSMisnotregisteredyet
+Bit1:1DetectedSIMcard
+0NotdetectedSIMcard
+Bit0:1TheGSMmoduleisstarted
+0TheGSMmoduleisnotstartedyet
+Battery
+voltage2 VariableUnit:10mv,
+forexample:0175H=373(DEC),375*10mV=3.73V.
+
+--- PAGE 11 ---
+11Temperature2 VariableUnit:0.1℃，hexcode,converttobinaryfirst,
+Bit15:0thetemperature/humiditysensorisnormal
+1thetemperature/humiditysensorisabnormal
+Bit14：0thetemperatureispositive.
+1thetemperatureisnegative.
+Bit0-13:thetemperaturevalue,converttoHEXfirst,andmultiply
+0.1℃.
+forexample:0123=29.1℃,4123=-29.1℃
+8000=notconnecttemperature/humiditysensor
+humidity2 VariableUnit:0.1%,Hexcode,converttobinaryfirst,
+Bit15:0thetemperature/humiditysensorisnormal
+1thetemperature/humiditysensorisabnormal
+Bit0-14:thehumidityvalue,converttoHEXfirst,
+forexample:024D=58.9%,
+FF=notconnecttemperature/humiditysensorornohumidity
+LightSensor1 VariableBit0meansbrightordark，0-bright,1-dark;
+Reserved3C=0 NCReservedforfutureuse.Currently,nobytesisused.
+Reserved4D=0 NCReservedforfutureuse.Currently,nobytesisused.
+MessageID2 variableThevaluerangeofthispartisbetween1and9999
+Checksum2 variableTheCRC16checksumofbytesfrommessagetypetoMessageID.
+StopSymbol20DH0AHIndicatethisframe/packetisfinished
+Explanationoftheimpactonthelengthofequipmentdata:
+1.IfthedevicedoesnothaveGPSdata,theGPSinformationlengthis0000H,andthefollowingdatawillnotappear:
+"Status(1byte)+UTCtime(6byte)+latitude(4byte)+longitude(4byte)+angle(2byte)+speed(2byte)”.
+2.IfthedevicedoesnothaveLBSdata,theLBSinformationlengthis0000H,andthefollowingdatawillnotappear:
+"ThenumberofLBS(1byte)+signalLBSinformation(1byte)+MCC(2byte)+MNC(2byte)+LAC(2byte)+
+CELLID(4byte)+RxLev(1byte)+PCI(2byte)+EARFCN(3byte)+RSRP(1byte)+RSRQ(1byte)+RSSI(1byte)”.
+3.Ifthedevicedoesnothavestatusdata,thestatusinformationlengthis0000H,andthefollowingdatawillnotappear:
+"Datatype(1byte)+Terminalinformation(1byte)+Networksignalstrength(1byte)+Networkstate(1byte)+
+Batteryvoltage(2byte)+Temperature(2byte)+Humidity(2byte)+LightSensor(1byte)”.
+4.Ifitis2Gnetworkdata,thefollowingdatawillnotappear:"PCI(2byte)+EARFCN(3byte)+RSRP(1byte)+
+RSRQ(1byte)+RSSI(1byte)"butitwilldisplay:"RxLev(1byte)”,
+IfitisNB/CATM1/LTEnetworkdata,thefollowingdatawillnotappear:"RxLev(1byte)",butitwill
+appear:"PCI(2byte)+EARFCN(3byte)+RSRP(1byte)+RSRQ(1byte)+RSSI(1byte)".
+2.2.3MessageFrameSamples
+TT18-4G-MDataExample:
+545A00522424040703080000018032300000509817050416341E001301170504
+1634320157BF0806CCAEB80000000000140152046000001D2F0D635F520016
+
+--- PAGE 12 ---
+12000E66530C46000BAA00163F017640CE032B01002B12AE0D0A
+TT18-4G-SDataExample:
+545A006E2424040D010400000190123000000173170B1D010E0A001305170B
+1D010F04015C148206C9BBF200000002001401D20460000027AC0DE6B94301
+8A0005145C0A3F0010B0101737005D010B024700FB0335000000157C03C910
+8DD45EC8EEA64D02685380EA074D12345800016EBE0D0A
+2.2.4DetailedDescriptionofMessageFrameSamplesbyEachDataBlock
+DatablockNumber
+ofbytesTT18-4G-M TT18-4G-S
+Startsymbol2 545A—‘TZ’ 545A—‘TZ’
+Packetlength2 006C—108bytes 006E—110bytes
+MessageType2 2424—‘$$’ 2424—‘$$’
+Hardwaretype2 0407—TT18-4G-M 0409—TT18-4G-S
+Firmwareversion4 03080000—3.08 03090000—3.09
+ID 80180323000005098
+—1803230000050980180523000000031
+—18052300000031
+RTCtime 617050416341E—
+2023\05\0422:52:3017060700360D—
+2023\06\0700:54:13
+GPSdatalength 2 0013—19byte 0013-19byte
+Status 1 05 05
+UTCdatetime 6170504163432—
+2023\05\0422:52:50170607003622—
+2023\06\0700:54:34
+Latitude 4 0157BF08—22.527752 0157E1DD—22.536669
+
+--- PAGE 13 ---
+13Longitude 4 06CCAEB8—114.077368 06CC8D2B—114.068779
+Angle 2 0000 0000
+Speed 2 0000 0000
+LBSlength 2 0014—20bytes 0014—20bytes
+NumberofLBS 1 01 01
+SingleLBS
+information1 52 D2
+MCC 2 0460 0460
+MNC 2 0000 0000
+LAC 2 1D2F 27B6
+CELLID 4 0D635F52 0A7E7410
+PCI 2 0016 0145
+EARFCN 3 000E66 000514
+RSRP 1 53 63
+RSRQ 1 0C 0D
+RSSI 1 46 41
+Statuslength 2 000B—11byte 000B—11byte
+Datatype 1 AA—Basicdata AA—Basicdata
+Terminal
+information1 00—00000000 10—00010000
+Networksignal
+strength1 16—22 17-23
+Networkstate 1 3F—00111111 37-00110111
+Batteryvoltage 2 0176—3.74V 0182-3.86V
+temperature 2 40CE—-20.6℃ 0119-27.1℃
+humidity 2 032B—81.1% 027C—63.6%
+Lightsensor 1 01—1 01—1
+MessageID 2 002B—43 001D-29
+Checksum 2 AE0D A90D
+StopSymbol 2 0D0A 0D0A
+
+--- PAGE 14 ---
+142.3ServerACKResponse
+Replyformat:@ACK,{message-ID#\r\n
+Example:@ACK,1035#\r\n
+Note:message-ID,thevaluerangeofthispartisbetween1and9999.
+2.4ServerDownlinkCommand
+Requestformat:@CMD,{CMD-format},#\r\
+Example1(Setdatatransmissionintervalofdevice):@CMD,*000000,018,10#,#\r\n
+Note：
+FortheCMD-formatofspecificinstructions,pleaserefertothedocument"TT18command",andnotethe"Format"
+column,whichisequivalenttoCMD-format.
+{CMD-format}variesaccordingtodifferentinstructions,inthefollowingformat:
+{CMD-format}=*{password},{ins-code}[,{ins-paras}]#
+{}indicatesvariables,[]indicatesoptional.
+password:passwordforaccessingthedevice,defaultis000000.
+ins-code:instructioncodelike018,etc.
+ins-paras:parametersoftheinstruction.Fordifferentinstructions,parametersnumberis0tomany.
+
+--- PAGE 15 ---
+152.5Device'sGeneralReplytoDownlinkCommand
+2.5.1DataBlocksofMessageFrame
+2.5.2Detaileddescriptionforalldatablocks
+DatablockNumber
+ofbytesContent Description
+Startsymbol 2 ‘TZ’Thisistheheaderofeverypacket
+Packetlength 2 variableThelengthfromMessageTypetoChecksum
+MessageType 2 ‘$D’‘$D’meansthemessagetypeisgeneralreplyto
+downlinkcommand
+Hardwaretype 2 04H0AHHardwaremodelofTT184G
+0407isTT18-4G-M,0409isTT18-4G-S.
+Firmwareversion4 variableForexample,03H08H00H00Hindicatesthatthe
+versionis3.8.0.0
+ID 8 variableThehighfourbitsofthefirstbyteareignored,andevery
+other4bitsrepresentacharacter,suchas01H80H32H
+30H00H00H50H98H
+IndicatesthattheIMEIis180323000005098.
+RTCtime 6 variableTheRTCtimewhenthismessageispacked.
+ThesequenceisYearMonthDayHourMinuteSecond
+
+--- PAGE 16 ---
+16Forexample,17H05H04H16H34H1EHindicatesthat
+thetimeis:2023/05/0422:52:30
+CommandType 1 variableThetypeofdownlinkcommandtoreply.00Hmeans
+settingcommand,01Hmeansreadingcommand
+InstructionCode 2 variableThelastinstructioncodeinserver’scommand.
+ResultCode 1 variableResultcodeofsettingorreadingcommand:00H
+indicatessuccess,05Hindicatesthecommandisnot
+supported,08Hindicatesfailure,09Hindicatesthe
+devicecannotbesetnow
+RetrievedValue X variableForsettingcommand,thereisnosuchdata,bytenumber
+is0;forreadingcommand,itistheretrievedvalue.This
+datablockisinASCIIformat,andthedatacontentis
+separatedbycommasfordifferentfields.Fordetails,see
+thecommand/instructiontable.Forexample,when
+readingIP,thisdatais1,g-cloud.tzonedigital.com,18801
+MessageID 2 variableThevaluerangeofthispartisbetween1and9999
+Checksum 2 variableTheCRC16checksumofbytesfrommessagetypeto
+MessageID.
+StopSymbol 2 0DH0AHIndicatethisframe/packetisfinished
+2.5.3MessageFrameSamples
+545A001E24440407031500000280112000000090190717080925000012000001
+C5D90D0A
+2.5.4DetailedDescriptionofMessageFrameSamplesbyEachDataBlock
+DatablockNumber
+ofbytesContent
+Startsymbol 2 ‘TZ’-545A
+Packetlength 2 001E,indicatingapackagelengthof30
+MessageType 2 ‘$D’-2444
+Hardwaretype 2 0407
+Firmwareversion4 03150000
+ID 8 0280112000000090
+RTCtime 6 19H07H17H08H09H25Hindicating2025/07/2308:09:37
+CommandType 1 00
+InstructionCode 2 0012representsthe018instruction
+ResultCode 1 00
+RetrievedValue X /
+
+--- PAGE 17 ---
+17MessageID 2 0001indicatesserialnumber1
+Checksum 2 C5D9
+StopSymbol 2 0D0A
+2.6ChecksumCalculation
+onstunsignedcharauchCRCHi[]=
+{0x00,0xC1,0x81,0x40,0x01,0xC0,0x80,0x41,0x01,0xC0,0x80,0x41,0x00,0xC1,0x81,0x40,0x01,0xC0,
+0x80,0x41,0x00,0xC1,0x81,0x40,0x00,0xC1,0x81,0x40,0x01,0xC0,0x80,0x41,0x01,
+0xC0,0x80,0x41,0x00,0xC1,0x81,0x40,0x00,0xC1,0x81,0x40,0x01,0xC0,0x80,0x41,0x00,
+0xC1,0x81,0x40,0x01,0xC0,0x80,0x41,0x01,0xC0,0x80,0x41,0x00,0xC1,0x81,0x40,0x01,
+0xC0,0x80,0x41,0x00,0xC1,0x81,0x40,0x00,0xC1,0x81,0x40,0x01,0xC0,0x80,0x41,0x00,
+0xC1,0x81,0x40,0x01,0xC0,0x80,0x41,0x01,0xC0,0x80,0x41,0x00,0xC1,0x81,0x40,0x00,
+0xC1,0x81,0x40,0x01,0xC0,0x80,0x41,0x01,0xC0,0x80,0x41,0x00,0xC1,0x81,0x40,0x01,
+0xC0,0x80,0x41,0x00,0xC1,0x81,0x40,0x00,0xC1,0x81,0x40,0x01,0xC0,0x80,0x41,0x01,
+0xC0,0x80,0x41,0x00,0xC1,0x81,0x40,0x00,0xC1,0x81,0x40,0x01,0xC0,0x80,0x41,0x00,
+0xC1,0x81,0x40,0x01,0xC0,0x80,0x41,0x01,0xC0,0x80,0x41,0x00,0xC1,0x81,0x40,0x00,
+0xC1,0x81,0x40,0x01,0xC0,0x80,0x41,0x01,0xC0,0x80,0x41,0x00,0xC1,0x81,0x40,0x01,
+0xC0,0x80,0x41,0x00,0xC1,0x81,0x40,0x00,0xC1,0x81,0x40,0x01,0xC0,0x80,0x41,0x00,
+0xC1,0x81,0x40,0x01,0xC0,0x80,0x41,0x01,0xC0,0x80,0x41,0x00,0xC1,0x81,0x40,0x01,
+0xC0,0x80,0x41,0x00,0xC1,0x81,0x40,0x00,0xC1,0x81,0x40,0x01,0xC0,0x80,0x41,0x01,
+0xC0,0x80,0x41,0x00,0xC1,0x81,0x40,0x00,0xC1,0x81,0x40,0x01,0xC0,0x80,0x41,0x00,
+0xC1,0x81,0x40,0x01,0xC0,0x80,0x41,0x01,0xC0,0x80,0x41,0x00,0xC1,0x81,0x40};
+constunsignedcharauchCRCLo[]=
+{0x00,0xC0,0xC1,0x01,0xC3,0x03,0x02,0xC2,0xC6,0x06,0x07,0xC7,0x05,0xC5,0xC4,0x04,0xCC,
+0x0C,0x0D,0xCD,0x0F,0xCF,0xCE,0x0E,0x0A,0xCA,0xCB,0x0B,0xC9,0x09,0x08,0xC8,0xD8,
+0x18,0x19,0xD9,0x1B,0xDB,0xDA,0x1A,0x1E,0xDE,0xDF,0x1F,0xDD,0x1D,0x1C,0xDC,
+0x14,0xD4,0xD5,0x15,0xD7,0x17,0x16,0xD6,0xD2,0x12,0x13,0xD3,0x11,0xD1,0xD0,0x10,0xF0,
+0x30,0x31,0xF1,0x33,0xF3,0xF2,0x32,0x36,0xF6,0xF7,0x37,0xF5,0x35,0x34,0xF4,0x3C,
+0xFC,0xFD,0x3D,0xFF,0x3F,0x3E,0xFE,0xFA,0x3A,0x3B,0xFB,0x39,0xF9,0xF8,0x38,0x28,
+0xE8,0xE9,0x29,0xEB,0x2B,0x2A,0xEA,0xEE,0x2E,0x2F,0xEF,0x2D,0xED,0xEC,0x2C,0xE4,
+0x24,0x25,0xE5,0x27,0xE7,0xE6,0x26,0x22,0xE2,0xE3,0x23,0xE1,0x21,0x20,0xE0,0xA0,
+0x60,0x61,0xA1,0x63,0xA3,0xA2,0x62,0x66,0xA6,0xA7,0x67,0xA5,0x65,0x64,0xA4,0x6C,
+0xAC,0xAD,0x6D,0xAF,0x6F,0x6E,0xAE,0xAA,0x6A,0x6B,0xAB,0x69,0xA9,0xA8,0x68,0x78,
+0xB8,0xB9,0x79,0xBB,0x7B,0x7A,0xBA,0xBE,0x7E,0x7F,0xBF,0x7D,0xBD,0xBC,0x7C,
+0xB4,0x74,0x75,0xB5,0x77,0xB7,0xB6,0x76,0x72,0xB2,0xB3,0x73,0xB1,0x71,0x70,0xB0,0x50,
+0x90,0x91,0x51,0x93,0x53,0x52,0x92,0x96,0x56,0x57,0x97,0x55,0x95,0x94,0x54,0x9C,0x5C,
+0x5D,0x9D,0x5F,0x9F,0x9E,0x5E,0x5A,0x9A,0x9B,0x5B,0x99,0x59,0x58,0x98,0x88,
+0x48,0x49,0x89,0x4B,0x8B,0x8A,0x4A,0x4E,0x8E,0x8F,0x4F,0x8D,0x4D,0x4C,0x8C,0x44,
+0x84,0x85,0x45,0x87,0x47,0x46,0x86,0x82,0x42,0x43,0x83,0x41,0x81,0x80,0x40};
+unsignedintCRC16(unsignedchar*puchMsg,unsignedintDataLen)
+
+--- PAGE 18 ---
+18{
+unsignedcharuchCRCHi=0xFF;
+unsignedcharuchCRCLo=0xFF;
+unsignedchar*pt;
+unsignedintLen;
+unsignedcharuIndex;
+pt=puchMsg;
+Len=DataLen;
+while(Len--)
+{
+uIndex=uchCRCLo^(*pt++);
+uchCRCLo=uchCRCHi^(auchCRCHi[uIndex]);
+uchCRCHi=auchCRCLo[uIndex];
+}
+return(uchCRCHi<<8|uchCRCLo);
+}
+
