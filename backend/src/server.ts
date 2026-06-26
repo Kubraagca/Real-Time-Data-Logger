@@ -4,7 +4,7 @@ import { Server as SocketIOServer } from 'socket.io';
 
 import app from './app';
 import { env } from './config/env';
-import { prisma } from './config/prisma';
+import { disconnectPrisma, isDatabaseConfigured } from './config/prisma';
 import { tzoneGateway } from './tzone/tzone.gateway';
 import { createTzoneTcpServer } from './tzone/tzone.tcp.server';
 
@@ -30,12 +30,16 @@ async function bootstrap() {
   const tcpServer = createTzoneTcpServer();
   tcpServer.listen();
 
-  httpServer.listen(env.PORT, () => {
-    console.log(`HTTP API listening on port ${env.PORT}`);
+  httpServer.listen(env.PORT, env.HTTP_HOST, () => {
+    console.log(`HTTP API listening on ${env.HTTP_HOST}:${env.PORT}`);
   });
 
+  if (!isDatabaseConfigured) {
+    console.warn('DATABASE_URL is not configured. Running in TCP/API-only mode without persistence.');
+  }
+
   const shutdown = async () => {
-    await prisma.$disconnect();
+    await disconnectPrisma();
     io.close();
     tcpServer.close();
     httpServer.close();
@@ -47,6 +51,6 @@ async function bootstrap() {
 
 bootstrap().catch(async (error) => {
   console.error('Failed to start backend', error);
-  await prisma.$disconnect();
+  await disconnectPrisma();
   process.exit(1);
 });

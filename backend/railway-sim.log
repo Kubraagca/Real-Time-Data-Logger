@@ -1,0 +1,4 @@
+DATABASE_URL is not configured. Running in TCP/API-only mode without persistence.
+TZONE TCP server listening on 0.0.0.0:18801
+HTTP API listening on 0.0.0.0:3000
+[0mGET /health [32m200[0m 2.168 ms - 68[0m

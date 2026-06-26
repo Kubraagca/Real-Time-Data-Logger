@@ -16,6 +16,10 @@ export function createTzoneTcpServer() {
 
       const parsed = parseTzonePacket(buffer, receivedAt);
 
+      if (parsed.packetIndex !== null) {
+        socket.write(buildTzoneAck(parsed.packetIndex));
+      }
+
       try {
         await tzoneService.ingestReading({
           ...parsed,
@@ -24,10 +28,6 @@ export function createTzoneTcpServer() {
         });
       } catch (error) {
         console.error('[TZONE:DB]', error);
-      }
-
-      if (parsed.packetIndex !== null) {
-        socket.write(buildTzoneAck(parsed.packetIndex));
       }
     });
 

@@ -1,9 +1,32 @@
-import { prisma } from '../config/prisma';
+import { isDatabaseConfigured, prisma } from '../config/prisma';
 import { tzoneGateway } from './tzone.gateway';
 import { TzoneDeviceSummary, TzoneReadingPayload } from './tzone.types';
 
 export class TzoneService {
   async ingestReading(payload: TzoneReadingPayload) {
+    const broadcastPayload = {
+      imei: payload.imei,
+      temperature: payload.temperature,
+      humidity: payload.humidity,
+      light: payload.light,
+      battery: payload.battery,
+      receivedAt: payload.receivedAt.toISOString(),
+      rawHex: payload.rawHex,
+      packetIndex: payload.packetIndex
+    };
+
+    if (!isDatabaseConfigured || prisma === null) {
+      tzoneGateway.broadcastReading(broadcastPayload);
+
+      return {
+        device: null,
+        reading: {
+          ...payload,
+          receivedAt: payload.receivedAt
+        }
+      };
+    }
+
     const device =
       payload.imei === null
         ? null
@@ -33,21 +56,16 @@ export class TzoneService {
       }
     });
 
-    tzoneGateway.broadcastReading({
-      imei: reading.imei,
-      temperature: reading.temperature,
-      humidity: reading.humidity,
-      light: reading.light,
-      battery: reading.battery,
-      receivedAt: reading.receivedAt.toISOString(),
-      rawHex: reading.rawHex,
-      packetIndex: reading.packetIndex
-    });
+    tzoneGateway.broadcastReading(broadcastPayload);
 
     return { device, reading };
   }
 
   async getLatestReadings(limit = 50) {
+    if (!isDatabaseConfigured || prisma === null) {
+      return [];
+    }
+
     return prisma.tzoneReading.findMany({
       orderBy: { receivedAt: 'desc' },
       take: limit
@@ -55,6 +73,10 @@ export class TzoneService {
   }
 
   async getDevices(): Promise<TzoneDeviceSummary[]> {
+    if (!isDatabaseConfigured || prisma === null) {
+      return [];
+    }
+
     const devices = await prisma.tzoneDevice.findMany({
       orderBy: { lastSeenAt: 'desc' },
       include: {
@@ -84,6 +106,10 @@ export class TzoneService {
   }
 
   async getDeviceReadings(imei: string, limit = 100) {
+    if (!isDatabaseConfigured || prisma === null) {
+      return [];
+    }
+
     return prisma.tzoneReading.findMany({
       where: { imei },
       orderBy: { receivedAt: 'desc' },

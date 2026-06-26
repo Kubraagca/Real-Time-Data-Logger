@@ -1,3 +1,4 @@
+import { isDatabaseConfigured } from './config/prisma';
 import cors from 'cors';
 import express from 'express';
 import morgan from 'morgan';
@@ -13,7 +14,8 @@ app.use(express.json());
 app.get('/health', (_request, response) => {
   response.json({
     status: 'ok',
-    service: 'tzone-backend'
+    service: 'tzone-backend',
+    databaseConfigured: isDatabaseConfigured
   });
 });
 
