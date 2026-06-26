@@ -1,0 +1,74 @@
+:root {
+  font-family: "Segoe UI", sans-serif;
+  color: #10213a;
+  background:
+    radial-gradient(circle at top, rgba(45, 140, 255, 0.22), transparent 36%),
+    linear-gradient(180deg, #edf6ff 0%, #f8fbff 100%);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+}
+
+.page-shell {
+  min-height: 100vh;
+  padding: 32px 16px;
+}
+
+.panel {
+  max-width: 980px;
+  margin: 0 auto;
+  background: rgba(255, 255, 255, 0.88);
+  border: 1px solid rgba(16, 33, 58, 0.08);
+  border-radius: 24px;
+  box-shadow: 0 24px 60px rgba(16, 33, 58, 0.12);
+  overflow: hidden;
+}
+
+.panel-header {
+  padding: 32px;
+  background: linear-gradient(135deg, #0b5fff 0%, #12b3a6 100%);
+  color: #fff;
+}
+
+.eyebrow {
+  margin: 0 0 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  font-size: 12px;
+}
+
+.panel-header h1 {
+  margin: 0;
+  font-size: clamp(32px, 5vw, 48px);
+}
+
+.lede {
+  margin: 12px 0 0;
+  max-width: 640px;
+}
+
+.table-wrap {
+  overflow-x: auto;
+  padding: 24px;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+th,
+td {
+  text-align: left;
+  padding: 14px 12px;
+  border-bottom: 1px solid rgba(16, 33, 58, 0.08);
+}
+
+tbody tr:hover {
+  background: rgba(18, 179, 166, 0.06);
+}

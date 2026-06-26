@@ -1,0 +1,44 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider          = "mysql"
+  url               = env("DATABASE_URL")
+  shadowDatabaseUrl = env("SHADOW_DATABASE_URL")
+}
+
+model TzoneDevice {
+  id          String         @id @default(cuid())
+  imei        String         @unique @db.VarChar(32)
+  name        String?        @db.VarChar(191)
+  lastSeenAt  DateTime       @map("last_seen_at")
+  createdAt   DateTime       @default(now()) @map("created_at")
+  updatedAt   DateTime       @updatedAt @map("updated_at")
+  readings    TzoneReading[]
+
+  @@map("tzone_devices")
+}
+
+model TzoneReading {
+  id          String       @id @default(cuid())
+  deviceId    String?      @map("device_id")
+  imei        String?      @db.VarChar(32)
+  temperature Float?
+  humidity    Float?
+  light       Float?
+  battery     Float?
+  rtcTime     DateTime?    @map("rtc_time")
+  packetIndex Int?         @map("packet_index")
+  protocolType String?     @map("protocol_type") @db.VarChar(50)
+  rawHex      String       @map("raw_hex") @db.LongText
+  rawAscii    String?      @map("raw_ascii") @db.LongText
+  receivedAt  DateTime     @map("received_at")
+  createdAt   DateTime     @default(now()) @map("created_at")
+  device      TzoneDevice? @relation(fields: [deviceId], references: [id], onDelete: SetNull)
+
+  @@index([imei, receivedAt])
+  @@index([deviceId, receivedAt])
+  @@index([packetIndex])
+  @@map("tzone_readings")
+}

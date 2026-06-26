@@ -1,0 +1,13 @@
+{
+  "name": "realtime-data-logger",
+  "private": true,
+  "workspaces": [
+    "backend",
+    "web-panel-example"
+  ],
+  "scripts": {
+    "dev:backend": "npm --workspace backend run dev",
+    "dev:web": "npm --workspace web-panel-example run dev",
+    "build": "npm run build --workspace backend && npm run build --workspace web-panel-example"
+  }
+}

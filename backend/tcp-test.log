@@ -1,0 +1,25 @@
+HTTP API listening on port 3001
+TZONE TCP server listening on 0.0.0.0:18801
+[0mGET /health [32m200[0m 5.091 ms - 41[0m
+[TZONE:RAW] {"remoteAddress":"127.0.0.1","remotePort":53597,"receivedAt":"2026-06-26T10:00:51.175Z","rawHex":"696D65693D3836393733313035353132323933312C74656D703D32382E372C68756D69646974793D35322E322C7061636B65745F696E6465783D3433","asciiPreview":"imei=869731055122931,temp=28.7,humidity=52.2,packet_index=43"}
+[TZONE:DB] PrismaClientInitializationError: 
+Invalid `prisma_1.prisma.tzoneReading.create()` invocation in
+C:\Users\Kubra\Desktop\RealTimeDataLogger\backend\dist\tzone\tzone.service.js:18:60
+
+  15             lastSeenAt: payload.receivedAt
+  16         }
+  17     });
+→ 18 const reading = await prisma_1.prisma.tzoneReading.create(
+Can't reach database server at `127.0.0.1:3306`
+
+Please make sure your database server is running at `127.0.0.1:3306`.
+    at ei.handleRequestError (C:\Users\Kubra\Desktop\RealTimeDataLogger\node_modules\@prisma\client\runtime\library.js:121:7568)
+    at ei.handleAndLogRequestError (C:\Users\Kubra\Desktop\RealTimeDataLogger\node_modules\@prisma\client\runtime\library.js:121:6593)
+    at ei.request (C:\Users\Kubra\Desktop\RealTimeDataLogger\node_modules\@prisma\client\runtime\library.js:121:6300)
+    at async a (C:\Users\Kubra\Desktop\RealTimeDataLogger\node_modules\@prisma\client\runtime\library.js:130:9551)
+    at async TzoneService.ingestReading (C:\Users\Kubra\Desktop\RealTimeDataLogger\backend\dist\tzone\tzone.service.js:18:25)
+    at async Socket.<anonymous> (C:\Users\Kubra\Desktop\RealTimeDataLogger\backend\dist\tzone\tzone.tcp.server.js:21:17) {
+  clientVersion: '6.19.3',
+  errorCode: undefined,
+  retryable: undefined
+}

@@ -1,0 +1,8 @@
+node_modules
+dist
+.env
+coverage
+backend/node_modules
+backend/dist
+web-panel-example/node_modules
+web-panel-example/dist
