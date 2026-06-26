@@ -1,8 +1,15 @@
+import { env } from '../config/env';
 import { isDatabaseConfigured, prisma } from '../config/prisma';
 import { tzoneGateway } from './tzone.gateway';
 import { TzoneDeviceSummary, TzoneReadingPayload } from './tzone.types';
 
 export class TzoneService {
+  private readonly onlineWindowMs = env.TZONE_ONLINE_WINDOW_MINUTES * 60 * 1000;
+
+  private isDeviceOnline(lastSeenAt: Date) {
+    return Date.now() - lastSeenAt.getTime() <= this.onlineWindowMs;
+  }
+
   async ingestReading(payload: TzoneReadingPayload) {
     const broadcastPayload = {
       imei: payload.imei,
@@ -87,22 +94,28 @@ export class TzoneService {
       }
     });
 
-    return devices.map((device: (typeof devices)[number]) => ({
-      imei: device.imei,
-      name: device.name,
-      lastSeenAt: device.lastSeenAt.toISOString(),
-      latestReading: device.readings[0]
-        ? {
-            temperature: device.readings[0].temperature,
-            humidity: device.readings[0].humidity,
-            light: device.readings[0].light,
-            battery: device.readings[0].battery,
-            receivedAt: device.readings[0].receivedAt.toISOString(),
-            rawHex: device.readings[0].rawHex,
-            packetIndex: device.readings[0].packetIndex
-          }
-        : null
-    }));
+    return devices.map((device: (typeof devices)[number]) => {
+      const isOnline = this.isDeviceOnline(device.lastSeenAt);
+
+      return {
+        imei: device.imei,
+        name: device.name,
+        lastSeenAt: device.lastSeenAt.toISOString(),
+        isOnline,
+        onlineStatus: isOnline ? 'online' : 'offline',
+        latestReading: device.readings[0]
+          ? {
+              temperature: device.readings[0].temperature,
+              humidity: device.readings[0].humidity,
+              light: device.readings[0].light,
+              battery: device.readings[0].battery,
+              receivedAt: device.readings[0].receivedAt.toISOString(),
+              rawHex: device.readings[0].rawHex,
+              packetIndex: device.readings[0].packetIndex
+            }
+          : null
+      };
+    });
   }
 
   async getDeviceReadings(imei: string, limit = 100) {

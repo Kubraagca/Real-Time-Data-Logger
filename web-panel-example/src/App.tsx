@@ -16,6 +16,8 @@ type TzoneDeviceSummary = {
   imei: string;
   name: string | null;
   lastSeenAt: string;
+  isOnline: boolean;
+  onlineStatus: 'online' | 'offline';
   latestReading: {
     temperature: number | null;
     humidity: number | null;
@@ -62,6 +64,8 @@ export function App() {
           imei,
           name: null,
           lastSeenAt: reading.receivedAt,
+          isOnline: true,
+          onlineStatus: 'online',
           latestReading: {
             temperature: reading.temperature,
             humidity: reading.humidity,
@@ -101,6 +105,7 @@ export function App() {
                 <th>IMEI</th>
                 <th>Sicaklik</th>
                 <th>Nem</th>
+                <th>Durum</th>
                 <th>Batarya</th>
                 <th>Isik</th>
                 <th>Son gorulme</th>
@@ -112,6 +117,7 @@ export function App() {
                   <td>{row.imei}</td>
                   <td>{formatMetric(row.latestReading?.temperature ?? null, ' C')}</td>
                   <td>{formatMetric(row.latestReading?.humidity ?? null, ' %')}</td>
+                  <td>{row.isOnline ? 'Online' : 'Offline'}</td>
                   <td>{formatMetric(row.latestReading?.battery ?? null, ' V')}</td>
                   <td>
                     {row.latestReading === null

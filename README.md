@@ -41,6 +41,10 @@ Tzone cihaz uzerinde su bilgileri girin:
 - `GET /api/tzone/devices`
 - `GET /api/tzone/devices/:imei/readings?limit=100`
 
+`GET /api/tzone/devices` cevabinda her cihaz icin `isOnline` ve `onlineStatus`
+alanlari da doner. Varsayilan olarak son `10` dakika icinde veri geldiyse cihaz
+`online` sayilir. Bu pencere `TZONE_ONLINE_WINDOW_MINUTES` ile degistirilebilir.
+
 ## Socket event
 
 Event adi:

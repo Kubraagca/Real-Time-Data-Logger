@@ -32,6 +32,8 @@ export interface TzoneDeviceSummary {
   imei: string;
   name: string | null;
   lastSeenAt: string;
+  isOnline: boolean;
+  onlineStatus: 'online' | 'offline';
   latestReading: {
     temperature: number | null;
     humidity: number | null;
