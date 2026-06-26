@@ -6,10 +6,13 @@ import { tzoneService } from './tzone.service';
 
 export function createTzoneTcpServer() {
   const server = net.createServer((socket) => {
+    const remoteAddress = socket.remoteAddress ?? 'unknown';
+    const remotePort = socket.remotePort ?? 0;
+
+    console.log(`[TZONE:CONNECT] ${remoteAddress}:${remotePort}`);
+
     socket.on('data', async (buffer) => {
       const receivedAt = new Date();
-      const remoteAddress = socket.remoteAddress ?? 'unknown';
-      const remotePort = socket.remotePort ?? 0;
 
       const rawLog = buildTzoneRawLog(buffer, remoteAddress, remotePort, receivedAt);
       console.log('[TZONE:RAW]', JSON.stringify(rawLog));
@@ -33,6 +36,10 @@ export function createTzoneTcpServer() {
 
     socket.on('error', (error) => {
       console.error('[TZONE:SOCKET]', error);
+    });
+
+    socket.on('close', (hadError) => {
+      console.log(`[TZONE:CLOSE] ${remoteAddress}:${remotePort} hadError=${hadError}`);
     });
   });
 
