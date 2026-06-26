@@ -6,6 +6,7 @@ Bu proje, Tzone TT18-4G-M cihazindan gelen sicaklik ve nem verilerini TCP uzerin
 
 - `backend`: Express + Prisma + Socket.IO + TCP listener
 - `web-panel-example`: React ile canli panel ornegi
+- `tools/public-tzone-listener`: Railway uzerinde yalnizca debug amacli public TCP listener
 - `docs/flutter-websocket-example.md`: Flutter baglanti notu
 
 ## Backend kurulumu
