@@ -27,7 +27,7 @@ type TzoneDeviceSummary = {
   } | null;
 };
 
-const API_BASE_URL = 'http://localhost:3001';
+const API_BASE_URL = 'https://real-time-data-logger-production.up.railway.app';
 
 function formatMetric(value: number | null, suffix: string) {
   return value === null ? '-' : `${value}${suffix}`;
@@ -48,7 +48,7 @@ export function App() {
     void loadInitialData();
 
     socket = io(API_BASE_URL, {
-      transports: ['websocket']
+      transports: ['polling', 'websocket']
     });
 
     socket.on('tzone:reading', (reading: TzoneReadingEvent) => {

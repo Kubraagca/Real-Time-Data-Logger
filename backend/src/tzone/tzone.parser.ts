@@ -5,6 +5,7 @@ const TZONE_START = 'TZ';
 const BASIC_DATA_MESSAGE_TYPE = 0x2424;
 const TT18_4G_M_HARDWARE_TYPE = 0x0407;
 const TT18_4G_S_HARDWARE_TYPE = 0x0409;
+const PACKET_STOP_SYMBOL = 0x0d0a;
 
 function toHex(buffer: Buffer): string {
   return buffer.toString('hex').toUpperCase();
@@ -34,6 +35,10 @@ function guessProtocolType(buffer: Buffer): TzoneProtocolType {
   return printableRatio > 0.85 ? 'ascii' : 'binary';
 }
 
+function looksLikeTlsClientHello(buffer: Buffer): boolean {
+  return buffer.length >= 3 && buffer[0] === 0x16 && buffer[1] === 0x03;
+}
+
 function readUInt16BE(buffer: Buffer, offset: number): number | null {
   if (offset + 2 > buffer.length) {
     return null;
@@ -49,6 +54,23 @@ function decodePackedImei(buffer: Buffer, offset: number): string | null {
 
   const imei = buffer.subarray(offset, offset + 8).toString('hex').slice(1);
   return imei.length === 15 ? imei : null;
+}
+
+function hasValidTzoneEnvelope(buffer: Buffer): boolean {
+  if (buffer.length < 12) {
+    return false;
+  }
+
+  if (buffer.subarray(0, 2).toString('ascii') !== TZONE_START) {
+    return false;
+  }
+
+  const stopSymbol = readUInt16BE(buffer, buffer.length - 2);
+  return stopSymbol === PACKET_STOP_SYMBOL;
+}
+
+function getPacketLength(buffer: Buffer): number | null {
+  return readUInt16BE(buffer, 2);
 }
 
 function decodeRtcDate(buffer: Buffer, offset: number): Date | null {
@@ -131,10 +153,45 @@ function parseAsciiPacket(ascii: string, receivedAt: Date, rawHex: string): Pars
 }
 
 function parseBinaryPacket(buffer: Buffer, receivedAt: Date, rawHex: string): ParsedTzonePacket {
+  if (looksLikeTlsClientHello(buffer) || !hasValidTzoneEnvelope(buffer)) {
+    return {
+      imei: null,
+      deviceId: null,
+      temperature: null,
+      humidity: null,
+      light: null,
+      battery: null,
+      rtcTime: null,
+      packetIndex: null,
+      rawHex,
+      rawAscii: toAsciiPreview(buffer),
+      protocolType: 'unknown',
+      receivedAt
+    };
+  }
+
+  const packetLength = getPacketLength(buffer);
   const messageType = readUInt16BE(buffer, 4);
   const hardwareType = readUInt16BE(buffer, 6);
   const imei = decodePackedImei(buffer, 12);
   const rtcTime = decodeRtcDate(buffer, 20);
+
+  if (packetLength !== null && packetLength + 6 !== buffer.length) {
+    return {
+      imei,
+      deviceId: imei,
+      temperature: null,
+      humidity: null,
+      light: null,
+      battery: null,
+      rtcTime,
+      packetIndex: null,
+      rawHex,
+      rawAscii: toAsciiPreview(buffer),
+      protocolType: 'binary',
+      receivedAt
+    };
+  }
 
   if (
     messageType !== BASIC_DATA_MESSAGE_TYPE ||
@@ -188,7 +245,7 @@ function parseBinaryPacket(buffer: Buffer, receivedAt: Date, rawHex: string): Pa
     cursor = statusStart + statusLength;
   }
 
-  const packetIndex = readUInt16BE(buffer, cursor);
+  const packetIndex = readUInt16BE(buffer, buffer.length - 6);
 
   return {
     imei,
