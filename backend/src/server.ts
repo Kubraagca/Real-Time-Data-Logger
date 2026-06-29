@@ -5,6 +5,7 @@ import { Server as SocketIOServer } from 'socket.io';
 import app from './app';
 import { env } from './config/env';
 import { disconnectPrisma, isDatabaseConfigured } from './config/prisma';
+import { createG1MqttClient } from './g1/g1.mqtt.client';
 import { tzoneGateway } from './tzone/tzone.gateway';
 import { createTzoneTcpServer } from './tzone/tzone.tcp.server';
 
@@ -28,7 +29,9 @@ async function bootstrap() {
   tzoneGateway.attach(io);
 
   const tcpServer = createTzoneTcpServer();
+  const g1MqttClient = createG1MqttClient();
   tcpServer.listen();
+  g1MqttClient.start();
 
   httpServer.listen(env.PORT, env.HTTP_HOST, () => {
     console.log(`HTTP API listening on ${env.HTTP_HOST}:${env.PORT}`);
@@ -41,6 +44,7 @@ async function bootstrap() {
   const shutdown = async () => {
     await disconnectPrisma();
     io.close();
+    g1MqttClient.close();
     tcpServer.close();
     httpServer.close();
   };

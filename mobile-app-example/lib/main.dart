@@ -15,7 +15,7 @@ class TzoneMobileApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Tzone Mobile',
+      title: 'Gateway Monitor',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(
@@ -191,7 +191,7 @@ class _TzoneDashboardPageState extends State<TzoneDashboardPage> {
       }
 
       final DeviceReading reading = DeviceReading.fromSocket(
-        Map<String, dynamic>.from(payload as Map<dynamic, dynamic>),
+        Map<String, dynamic>.from(payload),
       );
       final String key = reading.imei.isEmpty ? 'unknown-${reading.receivedAt}' : reading.imei;
 
@@ -208,14 +208,26 @@ class _TzoneDashboardPageState extends State<TzoneDashboardPage> {
     await _loadLatestReadings();
   }
 
+  bool _isGatewayReading(DeviceReading reading) {
+    return reading.deviceType == 'Gateway';
+  }
+
   @override
   Widget build(BuildContext context) {
     final List<DeviceReading> readings = _devices.values.toList()
       ..sort((DeviceReading a, DeviceReading b) => b.receivedAt.compareTo(a.receivedAt));
+    final List<DeviceReading> sensorReadings =
+        readings.where((DeviceReading reading) => !_isGatewayReading(reading)).toList();
+    final List<DeviceReading> gatewayReadings =
+        readings.where(_isGatewayReading).toList();
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Tzone Mobile'),
+        title: const Text('Gateway Monitor'),
+        titleTextStyle: Theme.of(context).textTheme.titleLarge?.copyWith(
+              color: const Color(0xFF102A43),
+              fontWeight: FontWeight.w700,
+            ),
         backgroundColor: Colors.white,
       ),
       body: RefreshIndicator(
@@ -237,18 +249,34 @@ class _TzoneDashboardPageState extends State<TzoneDashboardPage> {
             ],
             _MessageCard(
               message: _isSocketConnected
-                  ? 'Canli baglanti aktif. Yeni veriler otomatik dusuyor.'
-                  : 'Canli baglanti bekleniyor. API ile son veriler gosteriliyor.',
+                  ? 'Canli baglanti aktif. Gateway HTTP verileri ayri alanlarda gosteriliyor.'
+                  : 'Canli baglanti bekleniyor. API ile son kayitlar gosteriliyor.',
               color: _isSocketConnected ? const Color(0xFF0F766E) : const Color(0xFF9A6700),
             ),
             const SizedBox(height: 16),
             if (readings.isEmpty)
               const _EmptyState()
-            else
-              ...readings.map((DeviceReading reading) => Padding(
-                    padding: const EdgeInsets.only(bottom: 12),
-                    child: _ReadingCard(reading: reading),
-                  )),
+            else ...<Widget>[
+              _SectionHeader(title: 'Isi Sensorleri', count: sensorReadings.length),
+              const SizedBox(height: 12),
+              if (sensorReadings.isEmpty)
+                const _InlineEmptyState(message: 'Henuz isi sensor verisi yok.')
+              else
+                ...sensorReadings.map((DeviceReading reading) => Padding(
+                      padding: const EdgeInsets.only(bottom: 12),
+                      child: _ReadingCard(reading: reading),
+                    )),
+              const SizedBox(height: 20),
+              _SectionHeader(title: 'Gateway Cihazlari', count: gatewayReadings.length),
+              const SizedBox(height: 12),
+              if (gatewayReadings.isEmpty)
+                const _InlineEmptyState(message: 'Henuz gateway verisi yok.')
+              else
+                ...gatewayReadings.map((DeviceReading reading) => Padding(
+                      padding: const EdgeInsets.only(bottom: 12),
+                      child: _ReadingCard(reading: reading),
+                    )),
+            ],
           ],
         ),
       ),
@@ -372,12 +400,61 @@ class _EmptyState extends StatelessWidget {
             ),
             const SizedBox(height: 8),
             const Text(
-              'Backend URL dogruysa ve cihaz veri gonderiyorsa son okumalar burada listelenecek.',
+              'Backend URL dogruysa ve gateway HTTP POST gonderiyorsa son okumalar burada listelenecek.',
               textAlign: TextAlign.center,
             ),
           ],
         ),
       ),
+    );
+  }
+}
+
+class _InlineEmptyState extends StatelessWidget {
+  const _InlineEmptyState({required this.message});
+
+  final String message;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: const Color(0xFFEFF3F8),
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Text(
+        message,
+        style: Theme.of(context).textTheme.bodyMedium,
+      ),
+    );
+  }
+}
+
+class _SectionHeader extends StatelessWidget {
+  const _SectionHeader({
+    required this.title,
+    required this.count,
+  });
+
+  final String title;
+  final int count;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: <Widget>[
+        Expanded(
+          child: Text(
+            title,
+            style: Theme.of(context).textTheme.titleLarge,
+          ),
+        ),
+        Text(
+          '$count cihaz',
+          style: Theme.of(context).textTheme.bodyMedium,
+        ),
+      ],
     );
   }
 }
@@ -400,7 +477,7 @@ class _ReadingCard extends StatelessWidget {
               children: <Widget>[
                 Expanded(
                   child: Text(
-                    reading.imei.isEmpty ? 'IMEI bilinmiyor' : reading.imei,
+                    reading.imei.isEmpty ? 'Cihaz kimligi yok' : reading.displayId,
                     style: Theme.of(context).textTheme.titleMedium,
                   ),
                 ),
@@ -415,10 +492,14 @@ class _ReadingCard extends StatelessWidget {
               spacing: 12,
               runSpacing: 12,
               children: <Widget>[
+                _MetricChip(label: 'Tip', value: reading.deviceTypeText),
+                _MetricChip(label: 'Gateway', value: reading.gatewayText),
+                _MetricChip(label: 'RSSI', value: reading.rssiText),
                 _MetricChip(label: 'Sicaklik', value: reading.temperatureText),
                 _MetricChip(label: 'Nem', value: reading.humidityText),
                 _MetricChip(label: 'Pil', value: reading.batteryText),
-                _MetricChip(label: 'Isik', value: reading.lightText),
+                _MetricChip(label: 'Gateway Free', value: reading.gatewayFreeText),
+                _MetricChip(label: 'Gateway Load', value: reading.gatewayLoadText),
               ],
             ),
             if (reading.rawHex.isNotEmpty) ...<Widget>[
@@ -478,6 +559,13 @@ class _MetricChip extends StatelessWidget {
 class DeviceReading {
   DeviceReading({
     required this.imei,
+    required this.source,
+    required this.deviceType,
+    required this.gatewayMac,
+    required this.bleName,
+    required this.rssi,
+    required this.gatewayFree,
+    required this.gatewayLoad,
     required this.temperature,
     required this.humidity,
     required this.battery,
@@ -487,6 +575,13 @@ class DeviceReading {
   });
 
   final String imei;
+  final String source;
+  final String? deviceType;
+  final String? gatewayMac;
+  final String? bleName;
+  final double? rssi;
+  final double? gatewayFree;
+  final double? gatewayLoad;
   final double? temperature;
   final double? humidity;
   final double? battery;
@@ -494,6 +589,12 @@ class DeviceReading {
   final DateTime receivedAt;
   final String rawHex;
 
+  String get displayId => bleName == null || bleName!.isEmpty ? imei : '${bleName!} - $imei';
+  String get deviceTypeText => deviceType ?? source.toUpperCase();
+  String get gatewayText => gatewayMac ?? '-';
+  String get rssiText => rssi == null ? '-' : '${rssi!.toStringAsFixed(0)} dBm';
+  String get gatewayFreeText => gatewayFree == null ? '-' : '${gatewayFree!.toStringAsFixed(0)} MB';
+  String get gatewayLoadText => gatewayLoad == null ? '-' : gatewayLoad!.toStringAsFixed(2);
   String get temperatureText => temperature == null ? '-' : '${temperature!.toStringAsFixed(1)} C';
   String get humidityText => humidity == null ? '-' : '${humidity!.toStringAsFixed(1)} %';
   String get batteryText => battery == null ? '-' : battery!.toStringAsFixed(1);
@@ -502,6 +603,13 @@ class DeviceReading {
   factory DeviceReading.fromApi(Map<String, dynamic> json) {
     return DeviceReading(
       imei: (json['imei'] ?? '').toString(),
+      source: (json['source'] ?? 'tzone').toString(),
+      deviceType: _parseString(json['deviceType']),
+      gatewayMac: _parseString(json['gatewayMac']),
+      bleName: _parseString(json['bleName']),
+      rssi: _parseNumber(json['rssi']),
+      gatewayFree: _parseNumber(json['gatewayFree']),
+      gatewayLoad: _parseNumber(json['gatewayLoad']),
       temperature: _parseNumber(json['temperature']),
       humidity: _parseNumber(json['humidity']),
       battery: _parseNumber(json['battery']),
@@ -514,6 +622,13 @@ class DeviceReading {
   factory DeviceReading.fromSocket(Map<String, dynamic> json) {
     return DeviceReading(
       imei: (json['imei'] ?? '').toString(),
+      source: (json['source'] ?? 'tzone').toString(),
+      deviceType: _parseString(json['deviceType']),
+      gatewayMac: _parseString(json['gatewayMac']),
+      bleName: _parseString(json['bleName']),
+      rssi: _parseNumber(json['rssi']),
+      gatewayFree: _parseNumber(json['gatewayFree']),
+      gatewayLoad: _parseNumber(json['gatewayLoad']),
       temperature: _parseNumber(json['temperature']),
       humidity: _parseNumber(json['humidity']),
       battery: _parseNumber(json['battery']),
@@ -533,6 +648,15 @@ class DeviceReading {
     }
 
     return double.tryParse(value.toString());
+  }
+
+  static String? _parseString(dynamic value) {
+    if (value == null) {
+      return null;
+    }
+
+    final String text = value.toString().trim();
+    return text.isEmpty ? null : text;
   }
 }
 

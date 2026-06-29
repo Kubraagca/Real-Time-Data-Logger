@@ -1,10 +1,10 @@
 # RealTimeDataLogger
 
-Bu proje, Tzone TT18-4G-M cihazindan gelen sicaklik ve nem verilerini TCP uzerinden alip veritabanina kaydeden ve ayni veriyi Socket.IO ile istemcilere anlik ileten bir iskelet backend icerir.
+Bu proje, Tzone TT18-4G-M cihazindan gelen TCP verilerini ve G1 gateway uzerinden gelen MQTT sensor verilerini alip veritabanina kaydeden ve ayni veriyi Socket.IO ile istemcilere anlik ileten bir backend icerir.
 
 ## Klasorler
 
-- `backend`: Express + Prisma + Socket.IO + TCP listener
+- `backend`: Express + Prisma + Socket.IO + TCP listener + MQTT subscriber
 - `web-panel-example`: React ile canli panel ornegi
 - `tools/public-tzone-listener`: Railway uzerinde yalnizca debug amacli public TCP listener
 - `docs/flutter-websocket-example.md`: Flutter baglanti notu
@@ -34,6 +34,27 @@ Tzone cihaz uzerinde su bilgileri girin:
 - TCP/UDP: `TCP`
 - APN: SIM kart operatorunun verdigi APN bilgisi
 
+## G1 HTTP ayari
+
+G1 gateway tarafinda su alanlari kullanin:
+
+- Service Access: `HTTP`
+- Data Format: `JSON-LONG`
+- Upload Interval: `1000 ms`
+- URL: `https://YOUR_BACKEND_DOMAIN/gw/<gatewayMac>/status`
+
+Ornek:
+
+```text
+https://real-time-data-logger-production.up.railway.app/gw/ac233fc0211b/status
+```
+
+Notlar:
+
+- Gateway HTTP POST ile veri yollar.
+- Bos ping paketlerinde backend `200` doner ve cihaz veri gondermeye devam eder.
+- Test icin alternatif endpoint: `POST /api/g1/http`
+
 ## API endpointleri
 
 - `GET /health`
@@ -58,6 +79,11 @@ Payload ornegi:
 ```json
 {
   "imei": "862938475612345",
+  "source": "tzone",
+  "deviceType": null,
+  "gatewayMac": null,
+  "bleName": null,
+  "rssi": null,
   "temperature": 25.4,
   "humidity": 60,
   "light": null,

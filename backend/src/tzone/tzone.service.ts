@@ -3,6 +3,16 @@ import { isDatabaseConfigured, prisma } from '../config/prisma';
 import { tzoneGateway } from './tzone.gateway';
 import { TzoneDeviceSummary, TzoneReadingPayload } from './tzone.types';
 
+type PersistedReadingMetadata = {
+  source?: 'tzone' | 'g1';
+  deviceType?: string | null;
+  gatewayMac?: string | null;
+  bleName?: string | null;
+  rssi?: number | null;
+  gatewayFree?: number | null;
+  gatewayLoad?: number | null;
+};
+
 export class TzoneService {
   private readonly onlineWindowMs = env.TZONE_ONLINE_WINDOW_MINUTES * 60 * 1000;
 
@@ -11,15 +21,91 @@ export class TzoneService {
   }
 
   private isCanonicalImei(imei: string | null) {
+    return imei !== null && (this.isCanonicalTzoneImei(imei) || this.isCanonicalG1Mac(imei));
+  }
+
+  private isCanonicalTzoneImei(imei: string | null) {
     return imei !== null && /^\d{15}$/.test(imei);
   }
 
+  private isCanonicalG1Mac(identifier: string | null) {
+    return identifier !== null && /^[A-F0-9]{12}$/i.test(identifier);
+  }
+
   private isTrustedDeviceReading(payload: TzoneReadingPayload) {
+    if (payload.source === 'g1') {
+      return this.isCanonicalG1Mac(payload.imei);
+    }
+
     return (
       payload.protocolType === 'binary' &&
-      this.isCanonicalImei(payload.imei) &&
+      this.isCanonicalTzoneImei(payload.imei) &&
       payload.rawHex.startsWith('545A')
     );
+  }
+
+  private buildMetadata(payload: TzoneReadingPayload): string | null {
+    if (payload.source !== 'g1') {
+      return payload.rawAscii;
+    }
+
+    return JSON.stringify({
+      source: payload.source,
+      deviceType: payload.deviceType,
+      gatewayMac: payload.gatewayMac,
+      bleName: payload.bleName,
+      rssi: payload.rssi,
+      gatewayFree: payload.gatewayFree,
+      gatewayLoad: payload.gatewayLoad
+    } satisfies PersistedReadingMetadata);
+  }
+
+  private parseMetadata(rawAscii: string | null): PersistedReadingMetadata {
+    if (rawAscii === null) {
+      return {};
+    }
+
+    try {
+      const parsed = JSON.parse(rawAscii) as PersistedReadingMetadata;
+      return typeof parsed === 'object' && parsed !== null ? parsed : {};
+    } catch {
+      return {};
+    }
+  }
+
+  private toReadingResponse(
+    reading: {
+      imei: string | null;
+      temperature: number | null;
+      humidity: number | null;
+      light: number | null;
+      battery: number | null;
+      rawHex: string;
+      packetIndex: number | null;
+      receivedAt: Date;
+      rawAscii: string | null;
+      protocolType: string | null;
+    }
+  ) {
+    const metadata = this.parseMetadata(reading.rawAscii);
+
+    return {
+      imei: reading.imei,
+      source: metadata.source ?? (reading.protocolType === 'g1-mqtt-json' ? 'g1' : 'tzone'),
+      deviceType: metadata.deviceType ?? null,
+      gatewayMac: metadata.gatewayMac ?? null,
+      bleName: metadata.bleName ?? null,
+      rssi: metadata.rssi ?? null,
+      gatewayFree: metadata.gatewayFree ?? null,
+      gatewayLoad: metadata.gatewayLoad ?? null,
+      temperature: reading.temperature,
+      humidity: reading.humidity,
+      light: reading.light,
+      battery: reading.battery,
+      receivedAt: reading.receivedAt.toISOString(),
+      rawHex: reading.rawHex,
+      packetIndex: reading.packetIndex
+    };
   }
 
   async ingestReading(payload: TzoneReadingPayload) {
@@ -27,6 +113,13 @@ export class TzoneService {
 
     const broadcastPayload = {
       imei: payload.imei,
+      source: payload.source,
+      deviceType: payload.deviceType,
+      gatewayMac: payload.gatewayMac,
+      bleName: payload.bleName,
+      rssi: payload.rssi,
+      gatewayFree: payload.gatewayFree,
+      gatewayLoad: payload.gatewayLoad,
       temperature: payload.temperature,
       humidity: payload.humidity,
       light: payload.light,
@@ -74,7 +167,7 @@ export class TzoneService {
         packetIndex: payload.packetIndex,
         protocolType: payload.protocolType,
         rawHex: payload.rawHex,
-        rawAscii: payload.rawAscii,
+        rawAscii: this.buildMetadata(payload),
         receivedAt: payload.receivedAt
       }
     });
@@ -96,7 +189,10 @@ export class TzoneService {
       take: limit * 3
     });
 
-    return readings.filter((reading) => this.isCanonicalImei(reading.imei)).slice(0, limit);
+    return readings
+      .filter((reading) => this.isCanonicalImei(reading.imei))
+      .slice(0, limit)
+      .map((reading) => this.toReadingResponse(reading));
   }
 
   async getDevices(): Promise<TzoneDeviceSummary[]> {
@@ -118,24 +214,20 @@ export class TzoneService {
       .filter((device) => this.isCanonicalImei(device.imei))
       .map((device: (typeof devices)[number]) => {
       const isOnline = this.isDeviceOnline(device.lastSeenAt);
+      const latestReading = device.readings[0] ? this.toReadingResponse(device.readings[0]) : null;
 
       return {
         imei: device.imei,
+        source: latestReading?.source ?? 'tzone',
+        deviceType: latestReading?.deviceType ?? null,
+        gatewayMac: latestReading?.gatewayMac ?? null,
+        bleName: latestReading?.bleName ?? null,
+        rssi: latestReading?.rssi ?? null,
         name: device.name,
         lastSeenAt: device.lastSeenAt.toISOString(),
         isOnline,
         onlineStatus: isOnline ? 'online' : 'offline',
-        latestReading: device.readings[0]
-          ? {
-              temperature: device.readings[0].temperature,
-              humidity: device.readings[0].humidity,
-              light: device.readings[0].light,
-              battery: device.readings[0].battery,
-              receivedAt: device.readings[0].receivedAt.toISOString(),
-              rawHex: device.readings[0].rawHex,
-              packetIndex: device.readings[0].packetIndex
-            }
-          : null
+        latestReading
       };
     });
   }
@@ -151,7 +243,9 @@ export class TzoneService {
       take: limit
     });
 
-    return readings.filter((reading) => this.isCanonicalImei(reading.imei));
+    return readings
+      .filter((reading) => this.isCanonicalImei(reading.imei))
+      .map((reading) => this.toReadingResponse(reading));
   }
 }
 

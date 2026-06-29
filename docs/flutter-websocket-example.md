@@ -34,12 +34,17 @@ Beklenen payload ornegi:
 
 ```json
 {
-  "imei": "862938475612345",
-  "temperature": 25.4,
-  "humidity": 60,
+  "imei": "AC233FA449F0",
+  "source": "g1",
+  "deviceType": "S3",
+  "gatewayMac": "AC233FC0211B",
+  "bleName": null,
+  "rssi": -70,
+  "temperature": 24.3,
+  "humidity": 58.7,
   "light": null,
-  "battery": null,
+  "battery": 100,
   "receivedAt": "2026-06-26T09:15:30.000Z",
-  "rawHex": "404441544123"
+  "rawHex": "7B2274797065223A225333227D"
 }
 ```

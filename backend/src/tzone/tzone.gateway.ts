@@ -2,6 +2,13 @@ import type { Server as SocketIOServer } from 'socket.io';
 
 export interface TzoneReadingEvent {
   imei: string | null;
+  source: 'tzone' | 'g1';
+  deviceType: string | null;
+  gatewayMac: string | null;
+  bleName: string | null;
+  rssi: number | null;
+  gatewayFree: number | null;
+  gatewayLoad: number | null;
   temperature: number | null;
   humidity: number | null;
   light: number | null;
