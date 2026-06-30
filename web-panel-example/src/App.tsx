@@ -42,7 +42,11 @@ function isGatewayReading(reading: G1ReadingEvent) {
   return normalizeG1Type(reading.type).toLowerCase() === 'gateway';
 }
 
-function formatTimestamp(value: string) {
+function formatTimestamp(value: string | null | undefined) {
+  if (!value) {
+    return '-';
+  }
+
   const date = new Date(value);
   return Number.isNaN(date.getTime()) ? value : date.toLocaleString();
 }
@@ -51,71 +55,115 @@ function formatNumber(value: number | null | undefined, suffix = '') {
   return typeof value === 'number' ? `${value}${suffix}` : '-';
 }
 
+function SectionCard({
+  title,
+  count,
+  note,
+  children
+}: {
+  title: string;
+  count: number;
+  note: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <section className="section-card">
+      <header className="section-card-header">
+        <div>
+          <h3>{title}</h3>
+          <p>{note}</p>
+        </div>
+        <span className="section-count">{count} kayit</span>
+      </header>
+      {children}
+    </section>
+  );
+}
+
 function TzoneTable({ rows }: { rows: TzoneReadingEvent[] }) {
   return (
-    <table>
-      <thead>
-        <tr>
-          <th>Timestamp</th>
-          <th>IMEI</th>
-          <th>Sicaklik</th>
-          <th>Nem</th>
-          <th>Isik</th>
-          <th>Batarya</th>
-          <th>Paket</th>
-          <th>Raw Hex</th>
-        </tr>
-      </thead>
-      <tbody>
-        {rows.map((row, index) => (
-          <tr key={`${row.imei ?? 'unknown'}-${row.receivedAt}-${index}`}>
-            <td>{formatTimestamp(row.receivedAt)}</td>
-            <td>{row.imei ?? '-'}</td>
-            <td>{formatNumber(row.temperature, ' C')}</td>
-            <td>{formatNumber(row.humidity, ' %')}</td>
-            <td>{formatNumber(row.light)}</td>
-            <td>{formatNumber(row.battery)}</td>
-            <td>{formatNumber(row.packetIndex)}</td>
-            <td>{row.rawHex || '-'}</td>
+    <div className="table-shell">
+      <table>
+        <thead>
+          <tr>
+            <th>Zaman</th>
+            <th>Cihaz</th>
+            <th>Olcumler</th>
+            <th>Paket</th>
+            <th>Ham Veri</th>
           </tr>
-        ))}
-      </tbody>
-    </table>
+        </thead>
+        <tbody>
+          {rows.map((row, index) => (
+            <tr key={`${row.imei ?? 'unknown'}-${row.receivedAt}-${index}`}>
+              <td>{formatTimestamp(row.receivedAt)}</td>
+              <td>
+                <strong className="mono">{row.imei ?? '-'}</strong>
+                <div>TCP sicaklik sensoru</div>
+              </td>
+              <td>
+                <div className="metric-stack">
+                  <span>Sicaklik: {formatNumber(row.temperature, ' C')}</span>
+                  <span>Nem: {formatNumber(row.humidity, ' %')}</span>
+                  <span>Isik: {formatNumber(row.light)}</span>
+                  <span>Batarya: {formatNumber(row.battery)}</span>
+                </div>
+              </td>
+              <td>{formatNumber(row.packetIndex)}</td>
+              <td>
+                <code className="raw-block">{row.rawHex || '-'}</code>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
   );
 }
 
 function G1Table({ rows }: { rows: G1ReadingEvent[] }) {
   return (
-    <table>
-      <thead>
-        <tr>
-          <th>Timestamp</th>
-          <th>Type</th>
-          <th>MAC</th>
-          <th>BLE No</th>
-          <th>BLE Name</th>
-          <th>RSSI</th>
-          <th>Gateway Free</th>
-          <th>Gateway Load</th>
-          <th>Raw Data</th>
-        </tr>
-      </thead>
-      <tbody>
-        {rows.map((row, index) => (
-          <tr key={`${row.mac ?? 'unknown'}-${row.timestamp}-${index}`}>
-            <td>{formatTimestamp(row.timestamp)}</td>
-            <td>{normalizeG1Type(row.type)}</td>
-            <td>{row.mac ?? '-'}</td>
-            <td>{formatNumber(row.bleNo)}</td>
-            <td>{row.bleName && row.bleName.trim() ? row.bleName : '-'}</td>
-            <td>{formatNumber(row.rssi, ' dBm')}</td>
-            <td>{formatNumber(row.gatewayFree, ' MB')}</td>
-            <td>{formatNumber(row.gatewayLoad)}</td>
-            <td>{row.rawData ?? '-'}</td>
+    <div className="table-shell">
+      <table>
+        <thead>
+          <tr>
+            <th>Zaman</th>
+            <th>Cihaz</th>
+            <th>Durum</th>
+            <th>Raw Data</th>
           </tr>
-        ))}
-      </tbody>
-    </table>
+        </thead>
+        <tbody>
+          {rows.map((row, index) => (
+            <tr key={`${row.mac ?? 'unknown'}-${row.timestamp}-${index}`}>
+              <td>{formatTimestamp(row.timestamp)}</td>
+              <td>
+                <span className={`type-badge type-${normalizeG1Type(row.type).toLowerCase()}`}>
+                  {normalizeG1Type(row.type)}
+                </span>
+                <strong className="mono row-main-id">{row.mac ?? '-'}</strong>
+                <div>
+                  {row.bleName && row.bleName.trim()
+                    ? row.bleName
+                    : 'BLE Name yok'}
+                </div>
+              </td>
+              <td>
+                <div className="metric-stack">
+                  <span>BLE No: {formatNumber(row.bleNo)}</span>
+                  <span>RSSI: {formatNumber(row.rssi, ' dBm')}</span>
+                  <span>Gateway Free: {formatNumber(row.gatewayFree, ' MB')}</span>
+                  <span>Gateway Load: {formatNumber(row.gatewayLoad)}</span>
+                </div>
+              </td>
+              <td>
+                <code className="raw-block">{row.rawData ?? '-'}</code>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
   );
 }
 
@@ -127,6 +175,7 @@ export function App() {
 
   const gatewayRows = g1Rows.filter(isGatewayReading);
   const beaconRows = g1Rows.filter((row) => !isGatewayReading(row));
+  const isTzoneTab = activeSourceTab === 'tzone';
 
   useEffect(() => {
     let socket: Socket | null = null;
@@ -162,9 +211,7 @@ export function App() {
         console.error('Failed to load panel data', error);
         setTzoneRows([]);
         setG1Rows([]);
-        setErrorMessage(
-          error instanceof Error ? error.message : 'Veriler yuklenemedi.'
-        );
+        setErrorMessage(error instanceof Error ? error.message : 'Veriler yuklenemedi.');
       }
     };
 
@@ -189,83 +236,90 @@ export function App() {
     };
   }, []);
 
-  const isTzoneTab = activeSourceTab === 'tzone';
-
   return (
     <main className="page-shell">
       <section className="panel">
         <header className="panel-header">
-          <p className="eyebrow">Live telemetry</p>
-          <h1>Tzone ve G1 Verileri</h1>
-          <p className="lede">
-            Tzone TCP sicaklik sensoru verileri ve G1 gateway beacon kayitlari ayni panelde ayri sekmelerde gosterilir.
-          </p>
+          <div className="hero-copy">
+            <p className="eyebrow">Realtime Monitor</p>
+            <h1>Sensor ve Gateway Kontrol Paneli</h1>
+            <p className="lede">
+              Tzone isi sensoru kayitlarini ve G1 gateway beacon akisini ayni ekranda,
+              ama birbirine karismayacak sekilde ayri is akislari olarak izleyin.
+            </p>
+          </div>
+          <div className="hero-status">
+            <span className="status-pill">TZONE {tzoneRows.length}</span>
+            <span className="status-pill">G1 {g1Rows.length}</span>
+          </div>
         </header>
 
-        <div className="table-wrap">
+        <div className="workspace">
           {errorMessage ? <p className="status-banner">{errorMessage}</p> : null}
 
-          <div className="tab-list" role="tablist" aria-label="Veri kaynagi">
+          <nav className="source-switch" aria-label="Veri kaynagi">
             <button
               type="button"
-              role="tab"
-              aria-selected={isTzoneTab}
-              className={`tab-button${isTzoneTab ? ' is-active' : ''}`}
+              className={`source-button${isTzoneTab ? ' is-active' : ''}`}
               onClick={() => setActiveSourceTab('tzone')}
             >
-              <span>Isi Sensorleri</span>
-              <strong>{tzoneRows.length}</strong>
+              <span className="source-title">Isi Sensorleri</span>
+              <span className="source-subtitle">Tzone TCP hatti</span>
             </button>
             <button
               type="button"
-              role="tab"
-              aria-selected={!isTzoneTab}
-              className={`tab-button${!isTzoneTab ? ' is-active' : ''}`}
+              className={`source-button${!isTzoneTab ? ' is-active' : ''}`}
               onClick={() => setActiveSourceTab('g1')}
             >
-              <span>Gateway ve Beacon</span>
-              <strong>{g1Rows.length}</strong>
+              <span className="source-title">Gateway ve Beacon</span>
+              <span className="source-subtitle">G1 HTTP JSON-LONG hatti</span>
             </button>
-          </div>
+          </nav>
 
           {isTzoneTab ? (
-            <section className="data-group">
-              <div className="group-header">
-                <h2>Tzone Sicaklik Olcumleri</h2>
-                <span>{tzoneRows.length} kayit</span>
-              </div>
-              {tzoneRows.length > 0 ? (
-                <TzoneTable rows={tzoneRows} />
-              ) : (
-                <p className="empty-inline">Henuz isi sensor verisi yok.</p>
-              )}
+            <section className="content-panel content-panel-tzone">
+              <header className="content-header">
+                <div>
+                  <p className="section-kicker">Kaynak 01</p>
+                  <h2>Tzone Sicaklik Olcumleri</h2>
+                </div>
+                <span className="content-count">{tzoneRows.length} kayit</span>
+              </header>
+
+              <SectionCard
+                title="Canli Tzone Akisi"
+                count={tzoneRows.length}
+                note="Sicaklik, nem, isik ve batarya alanlari tek tabloda gosterilir."
+              >
+                {tzoneRows.length > 0 ? (
+                  <TzoneTable rows={tzoneRows} />
+                ) : (
+                  <p className="empty-inline">Henuz isi sensor verisi yok.</p>
+                )}
+              </SectionCard>
             </section>
           ) : (
-            <>
-              <section className="data-group">
-                <div className="group-header">
-                  <h2>Gateway Kayitlari</h2>
-                  <span>{gatewayRows.length} kayit</span>
-                </div>
-                {gatewayRows.length > 0 ? (
-                  <G1Table rows={gatewayRows} />
-                ) : (
-                  <p className="empty-inline">Henuz gateway verisi yok.</p>
-                )}
-              </section>
-
-              <section className="data-group">
-                <div className="group-header">
+            <section className="content-panel content-panel-g1">
+              <header className="content-header">
+                <div>
+                  <p className="section-kicker">Kaynak 02</p>
                   <h2>Beacon Kayitlari</h2>
-                  <span>{beaconRows.length} kayit</span>
                 </div>
+                <span className="content-count">{beaconRows.length} kayit</span>
+              </header>
+
+              <SectionCard
+                title="Canli Beacon Akisi"
+                count={beaconRows.length}
+                note="Gateway'in algiladigi beacon ve yakinlik kayitlari."
+              >
                 {beaconRows.length > 0 ? (
                   <G1Table rows={beaconRows} />
                 ) : (
                   <p className="empty-inline">Henuz beacon verisi yok.</p>
                 )}
-              </section>
-            </>
+              </SectionCard>
+            </section>
           )}
         </div>
       </section>

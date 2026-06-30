@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="tr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>RealTimeDataLogger - Proje Dokümanı</title>
+    <style>
+      :root {
+        --bg: #07111f;
+        --panel: #101c2d;
+        --panel-2: #18263a;
+        --text: #f3f7ff;
+        --muted: #9fb0c9;
+        --accent: #38bdf8;
+        --accent-2: #22c55e;
+      }
+
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+        background: linear-gradient(135deg, var(--bg), #14253d);
+        color: var(--text);
+        line-height: 1.7;
+      }
+
+      .container {
+        max-width: 1100px;
+        margin: 0 auto;
+        padding: 32px 20px 60px;
+      }
+
+      .hero, .card {
+        background: rgba(16, 28, 45, 0.92);
+        border: 1px solid rgba(56, 189, 248, 0.16);
+        border-radius: 18px;
+        padding: 24px;
+        box-shadow: 0 10px 36px rgba(0, 0, 0, 0.25);
+        margin-top: 18px;
+      }
+
+      .hero { margin-top: 0; }
+      .badge {
+        display: inline-block;
+        padding: 6px 12px;
+        border-radius: 999px;
+        background: rgba(56, 189, 248, 0.14);
+        color: var(--accent);
+        font-weight: 700;
+        margin-bottom: 10px;
+      }
+
+      h1, h2, h3 { margin-top: 0; }
+      h2 { color: var(--accent); }
+      .grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        gap: 14px;
+        margin-top: 18px;
+      }
+
+      .card h3 { color: var(--accent-2); }
+      .muted { color: var(--muted); }
+      ul { padding-left: 18px; }
+      code, pre {
+        background: rgba(255,255,255,0.08);
+        border-radius: 8px;
+      }
+      code { padding: 2px 6px; color: #fef3c7; }
+      pre {
+        padding: 14px;
+        overflow-x: auto;
+        color: #dbeafe;
+      }
+
+      .timeline {
+        display: grid;
+        gap: 12px;
+        margin-top: 16px;
+      }
+
+      .step {
+        border-left: 3px solid var(--accent);
+        padding: 12px 14px;
+        background: var(--panel-2);
+        border-radius: 10px;
+      }
+
+      .step strong { color: var(--accent-2); }
+      .footer {
+        margin-top: 22px;
+        color: var(--muted);
+        font-size: 0.95rem;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <section class="hero">
+        <div class="badge">Realtime Data Logger</div>
+        <h1>Bu proje nasıl çalışır?</h1>
+        <p>
+          Bu sistem, Tzone TT18-4G-M cihazlarından gelen verileri toplar, işler,
+          veritabanına kaydeder ve canlı olarak kullanıcı arayüzlerine iletir.
+          Amaç, sensör verilerini düzenli, güvenilir ve anlık şekilde kullanılabilir hale getirmektir.
+        </p>
+      </section>
+
+      <section class="card">
+        <h2>1. Projenin amacı</h2>
+        <p class="muted">
+          Cihazlardan gelen ham verileri yakalamak, anlamlı değerlere çevirmek,
+          saklamak ve istemcilere yayınlamak için tasarlanmış bir veri akışı sistemidir.
+        </p>
+      </section>
+
+      <section class="card">
+        <h2>2. Temel bileşenler</h2>
+        <div class="grid">
+          <div>
+            <h3>Backend</h3>
+            <p class="muted">Node.js + Express + TypeScript ile veri alma, işleme ve API servislerini sağlar.</p>
+          </div>
+          <div>
+            <h3>TCP Sunucu</h3>
+            <p class="muted">Tzone cihazlarından gelen TCP paketlerini dinler ve ham veriyi toplar.</p>
+          </div>
+          <div>
+            <h3>Parser</h3>
+            <p class="muted">Gelen paketleri ayrıştırarak sıcaklık, nem, batarya ve benzeri değerleri çıkarır.</p>
+          </div>
+          <div>
+            <h3>Veritabanı</h3>
+            <p class="muted">Prisma üzerinden kayıtların saklanmasını sağlar.</p>
+          </div>
+          <div>
+            <h3>Canlı Yayın</h3>
+            <p class="muted">Socket.IO ile anlık veri akışı sunar.</p>
+          </div>
+          <div>
+            <h3>İstemciler</h3>
+            <p class="muted">Web panel veya mobil örnek uygulamalar bu verileri görüntüler.</p>
+          </div>
+        </div>
+      </section>
+
+      <section class="card">
+        <h2>3. İş akışı</h2>
+        <div class="timeline">
+          <div class="step">
+            <strong>Adım 1:</strong> Tzone cihazı backend tarafındaki TCP sunucusuna veri gönderir.
+          </div>
+          <div class="step">
+            <strong>Adım 2:</strong> Backend gelen paketi alır, ham veriyi loglar ve parser ile işler.
+          </div>
+          <div class="step">
+            <strong>Adım 3:</strong> İşlenen veri veritabanına kaydedilir.
+          </div>
+          <div class="step">
+            <strong>Adım 4:</strong> Aynı veri Socket.IO üzerinden canlı olarak yayınlanır.
+          </div>
+          <div class="step">
+            <strong>Adım 5:</strong> Web veya mobil istemci bu olayı dinleyerek ekranına yansıtır.
+          </div>
+        </div>
+      </section>
+
+      <section class="card">
+        <h2>4. Protokol özeti</h2>
+        <ul>
+          <li><strong>Giriş Protokolü:</strong> TCP</li>
+          <li><strong>Canlı İletişim:</strong> Socket.IO</li>
+          <li><strong>API:</strong> REST</li>
+          <li><strong>Veri Saklama:</strong> Prisma + veritabanı</li>
+          <li><strong>Olay Adı:</strong> <code>tzone:reading</code></li>
+        </ul>
+
+        <h3>Örnek payload</h3>
+        <pre>{
+  "imei": "862938475612345",
+  "source": "tzone",
+  "temperature": 25.4,
+  "humidity": 60,
+  "battery": 88,
+  "light": 320,
+  "receivedAt": "2026-06-26T09:15:30.000Z"
+}</pre>
+      </section>
+
+      <section class="card">
+        <h2>5. Ana endpointler</h2>
+        <ul>
+          <li><code>GET /health</code> - Sistem sağlığını gösterir.</li>
+          <li><code>GET /api/tzone/readings/latest</code> - Son veriyi döndürür.</li>
+          <li><code>GET /api/tzone/devices</code> - Cihaz listesini döndürür.</li>
+          <li><code>GET /api/tzone/devices/:imei/readings?limit=100</code> - Geçmiş verileri getirir.</li>
+          <li><code>POST /api/g1/http</code> - G1 gateway verilerini kabul eder.</li>
+        </ul>
+      </section>
+
+      <section class="card">
+        <h2>6. Çalıştırma mantığı</h2>
+        <p class="muted">
+          Proje genel olarak iki ana iş yükü taşır: cihaz verisini almak ve bu veriyi kullanıcıya taşımak.
+          Bu nedenle backend hem alıcı hem işleyici hem de sunucu rolünü üstlenir.
+        </p>
+      </section>
+
+      <section class="card">
+        <h2>7. Notlar</h2>
+        <ul>
+          <li>Parser henüz ilk sürüm olduğundan bazı paketler ham veri olarak da saklanabilir.</li>
+          <li>Önemli paketlerin formatı netleşince ayrıştırma kuralları geliştirilebilir.</li>
+          <li>İsterseniz bu belgeyi daha sonra cihaz protokolü formatına göre genişletebilirsiniz.</li>
+        </ul>
+      </section>
+
+      <div class="footer">
+        Bu belge, projenin çalışma mantığını tek bir sayfada anlatmak için hazırlanmıştır.
+      </div>
+    </div>
+  </body>
+</html>
