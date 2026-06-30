@@ -1,6 +1,18 @@
 import { useEffect, useState } from 'react';
 import { io, Socket } from 'socket.io-client';
 
+type TzoneReadingEvent = {
+  imei: string | null;
+  source: 'tzone';
+  temperature: number | null;
+  humidity: number | null;
+  light: number | null;
+  battery: number | null;
+  receivedAt: string;
+  rawHex: string;
+  packetIndex: number | null;
+};
+
 type G1ReadingEvent = {
   timestamp: string;
   type: string | null;
@@ -13,11 +25,11 @@ type G1ReadingEvent = {
   gatewayLoad?: number | null;
 };
 
-type DeviceTab = 'beacon' | 'gateway';
+type SourceTab = 'tzone' | 'g1';
 
 const API_BASE_URL = 'https://real-time-data-logger-production.up.railway.app';
 
-function normalizeType(value: string | null | undefined) {
+function normalizeG1Type(value: string | null | undefined) {
   if (!value) {
     return 'Unknown';
   }
@@ -27,7 +39,7 @@ function normalizeType(value: string | null | undefined) {
 }
 
 function isGatewayReading(reading: G1ReadingEvent) {
-  return normalizeType(reading.type).toLowerCase() === 'gateway';
+  return normalizeG1Type(reading.type).toLowerCase() === 'gateway';
 }
 
 function formatTimestamp(value: string) {
@@ -39,7 +51,40 @@ function formatNumber(value: number | null | undefined, suffix = '') {
   return typeof value === 'number' ? `${value}${suffix}` : '-';
 }
 
-function ReadingTable({ rows }: { rows: G1ReadingEvent[] }) {
+function TzoneTable({ rows }: { rows: TzoneReadingEvent[] }) {
+  return (
+    <table>
+      <thead>
+        <tr>
+          <th>Timestamp</th>
+          <th>IMEI</th>
+          <th>Sicaklik</th>
+          <th>Nem</th>
+          <th>Isik</th>
+          <th>Batarya</th>
+          <th>Paket</th>
+          <th>Raw Hex</th>
+        </tr>
+      </thead>
+      <tbody>
+        {rows.map((row, index) => (
+          <tr key={`${row.imei ?? 'unknown'}-${row.receivedAt}-${index}`}>
+            <td>{formatTimestamp(row.receivedAt)}</td>
+            <td>{row.imei ?? '-'}</td>
+            <td>{formatNumber(row.temperature, ' C')}</td>
+            <td>{formatNumber(row.humidity, ' %')}</td>
+            <td>{formatNumber(row.light)}</td>
+            <td>{formatNumber(row.battery)}</td>
+            <td>{formatNumber(row.packetIndex)}</td>
+            <td>{row.rawHex || '-'}</td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  );
+}
+
+function G1Table({ rows }: { rows: G1ReadingEvent[] }) {
   return (
     <table>
       <thead>
@@ -59,7 +104,7 @@ function ReadingTable({ rows }: { rows: G1ReadingEvent[] }) {
         {rows.map((row, index) => (
           <tr key={`${row.mac ?? 'unknown'}-${row.timestamp}-${index}`}>
             <td>{formatTimestamp(row.timestamp)}</td>
-            <td>{normalizeType(row.type)}</td>
+            <td>{normalizeG1Type(row.type)}</td>
             <td>{row.mac ?? '-'}</td>
             <td>{formatNumber(row.bleNo)}</td>
             <td>{row.bleName && row.bleName.trim() ? row.bleName : '-'}</td>
@@ -75,41 +120,50 @@ function ReadingTable({ rows }: { rows: G1ReadingEvent[] }) {
 }
 
 export function App() {
-  const [rows, setRows] = useState<G1ReadingEvent[]>([]);
+  const [tzoneRows, setTzoneRows] = useState<TzoneReadingEvent[]>([]);
+  const [g1Rows, setG1Rows] = useState<G1ReadingEvent[]>([]);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<DeviceTab>('beacon');
+  const [activeSourceTab, setActiveSourceTab] = useState<SourceTab>('tzone');
 
-  const gatewayRows = rows.filter(isGatewayReading);
-  const beaconRows = rows.filter((row) => !isGatewayReading(row));
-  const visibleRows = activeTab === 'beacon' ? beaconRows : gatewayRows;
-  const activeTitle = activeTab === 'beacon' ? 'Beacon Kayitlari' : 'Gateway Kayitlari';
-  const activeEmptyMessage =
-    activeTab === 'beacon' ? 'Henuz beacon verisi yok.' : 'Henuz gateway verisi yok.';
+  const gatewayRows = g1Rows.filter(isGatewayReading);
+  const beaconRows = g1Rows.filter((row) => !isGatewayReading(row));
 
   useEffect(() => {
     let socket: Socket | null = null;
 
     const loadInitialData = async () => {
       try {
-        const response = await fetch(`${API_BASE_URL}/api/g1/readings/latest?limit=100`);
+        const [tzoneResponse, g1Response] = await Promise.all([
+          fetch(`${API_BASE_URL}/api/tzone/readings/latest?limit=100`),
+          fetch(`${API_BASE_URL}/api/g1/readings/latest?limit=100`)
+        ]);
 
-        if (!response.ok) {
-          throw new Error(`HTTP ${response.status}`);
+        if (!tzoneResponse.ok) {
+          throw new Error(`TZONE HTTP ${tzoneResponse.status}`);
         }
 
-        const data = (await response.json()) as unknown;
+        if (!g1Response.ok) {
+          throw new Error(`G1 HTTP ${g1Response.status}`);
+        }
 
-        if (!Array.isArray(data)) {
+        const [tzoneData, g1Data] = (await Promise.all([
+          tzoneResponse.json(),
+          g1Response.json()
+        ])) as [unknown, unknown];
+
+        if (!Array.isArray(tzoneData) || !Array.isArray(g1Data)) {
           throw new Error('API beklenen dizi formatinda donmedi.');
         }
 
-        setRows(data as G1ReadingEvent[]);
+        setTzoneRows(tzoneData as TzoneReadingEvent[]);
+        setG1Rows(g1Data as G1ReadingEvent[]);
         setErrorMessage(null);
       } catch (error) {
-        console.error('Failed to load G1 readings', error);
-        setRows([]);
+        console.error('Failed to load panel data', error);
+        setTzoneRows([]);
+        setG1Rows([]);
         setErrorMessage(
-          error instanceof Error ? error.message : 'Gateway verileri yuklenemedi.'
+          error instanceof Error ? error.message : 'Veriler yuklenemedi.'
         );
       }
     };
@@ -120,9 +174,14 @@ export function App() {
       transports: ['polling', 'websocket']
     });
 
+    socket.on('tzone:reading', (reading: TzoneReadingEvent) => {
+      setErrorMessage(null);
+      setTzoneRows((current) => [reading, ...current].slice(0, 100));
+    });
+
     socket.on('g1:reading', (reading: G1ReadingEvent) => {
       setErrorMessage(null);
-      setRows((current) => [reading, ...current].slice(0, 100));
+      setG1Rows((current) => [reading, ...current].slice(0, 100));
     });
 
     return () => {
@@ -130,52 +189,84 @@ export function App() {
     };
   }, []);
 
+  const isTzoneTab = activeSourceTab === 'tzone';
+
   return (
     <main className="page-shell">
       <section className="panel">
         <header className="panel-header">
           <p className="eyebrow">Live telemetry</p>
-          <h1>G1 Gateway Kayitlari</h1>
+          <h1>Tzone ve G1 Verileri</h1>
           <p className="lede">
-            Gateway cihazindan gelen JSON-LONG kayitlari, geldigi formata yakin sekilde burada listelenir.
+            Tzone TCP sicaklik sensoru verileri ve G1 gateway beacon kayitlari ayni panelde ayri sekmelerde gosterilir.
           </p>
         </header>
 
         <div className="table-wrap">
           {errorMessage ? <p className="status-banner">{errorMessage}</p> : null}
-          <div className="tab-list" role="tablist" aria-label="G1 cihaz kategorileri">
+
+          <div className="tab-list" role="tablist" aria-label="Veri kaynagi">
             <button
               type="button"
               role="tab"
-              aria-selected={activeTab === 'beacon'}
-              className={`tab-button${activeTab === 'beacon' ? ' is-active' : ''}`}
-              onClick={() => setActiveTab('beacon')}
+              aria-selected={isTzoneTab}
+              className={`tab-button${isTzoneTab ? ' is-active' : ''}`}
+              onClick={() => setActiveSourceTab('tzone')}
             >
-              <span>Beacon Kayitlari</span>
-              <strong>{beaconRows.length}</strong>
+              <span>Isi Sensorleri</span>
+              <strong>{tzoneRows.length}</strong>
             </button>
             <button
               type="button"
               role="tab"
-              aria-selected={activeTab === 'gateway'}
-              className={`tab-button${activeTab === 'gateway' ? ' is-active' : ''}`}
-              onClick={() => setActiveTab('gateway')}
+              aria-selected={!isTzoneTab}
+              className={`tab-button${!isTzoneTab ? ' is-active' : ''}`}
+              onClick={() => setActiveSourceTab('g1')}
             >
-              <span>Gateway Kayitlari</span>
-              <strong>{gatewayRows.length}</strong>
+              <span>Gateway ve Beacon</span>
+              <strong>{g1Rows.length}</strong>
             </button>
           </div>
-          <section className="data-group">
-            <div className="group-header">
-              <h2>{activeTitle}</h2>
-              <span>{visibleRows.length} kayit</span>
-            </div>
-            {visibleRows.length > 0 ? (
-              <ReadingTable rows={visibleRows} />
-            ) : (
-              <p className="empty-inline">{activeEmptyMessage}</p>
-            )}
-          </section>
+
+          {isTzoneTab ? (
+            <section className="data-group">
+              <div className="group-header">
+                <h2>Tzone Sicaklik Olcumleri</h2>
+                <span>{tzoneRows.length} kayit</span>
+              </div>
+              {tzoneRows.length > 0 ? (
+                <TzoneTable rows={tzoneRows} />
+              ) : (
+                <p className="empty-inline">Henuz isi sensor verisi yok.</p>
+              )}
+            </section>
+          ) : (
+            <>
+              <section className="data-group">
+                <div className="group-header">
+                  <h2>Gateway Kayitlari</h2>
+                  <span>{gatewayRows.length} kayit</span>
+                </div>
+                {gatewayRows.length > 0 ? (
+                  <G1Table rows={gatewayRows} />
+                ) : (
+                  <p className="empty-inline">Henuz gateway verisi yok.</p>
+                )}
+              </section>
+
+              <section className="data-group">
+                <div className="group-header">
+                  <h2>Beacon Kayitlari</h2>
+                  <span>{beaconRows.length} kayit</span>
+                </div>
+                {beaconRows.length > 0 ? (
+                  <G1Table rows={beaconRows} />
+                ) : (
+                  <p className="empty-inline">Henuz beacon verisi yok.</p>
+                )}
+              </section>
+            </>
+          )}
         </div>
       </section>
     </main>
