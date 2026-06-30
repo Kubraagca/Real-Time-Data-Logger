@@ -40,4 +40,38 @@ router.post('/gw/:gatewayMac/status', text({ type: '*/*' }), async (request, res
   await handleG1HttpIngest(request, response);
 });
 
+router.get('/api/g1/readings/latest', async (request, response, next) => {
+  try {
+    const limit = Number.parseInt(String(request.query.limit ?? '50'), 10);
+    const readings = await tzoneService.getG1LatestReadings(Number.isInteger(limit) ? limit : 50);
+    response.json(readings);
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.get('/api/g1/devices', async (_request, response, next) => {
+  try {
+    const devices = await tzoneService.getDevices('g1');
+    response.json(devices);
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.get('/api/g1/devices/:imei/readings', async (request, response, next) => {
+  try {
+    const limit = Number.parseInt(String(request.query.limit ?? '100'), 10);
+    const readings = await tzoneService.getDeviceReadings(
+      'g1',
+      request.params.imei,
+      Number.isInteger(limit) ? limit : 100
+    );
+
+    response.json(readings);
+  } catch (error) {
+    next(error);
+  }
+});
+
 export default router;

@@ -18,6 +18,18 @@ export interface TzoneReadingEvent {
   packetIndex: number | null;
 }
 
+export interface G1ReadingEvent {
+  timestamp: string;
+  type: string | null;
+  mac: string | null;
+  bleNo?: number | null;
+  bleName?: string;
+  rssi?: number | null;
+  rawData?: string | null;
+  gatewayFree?: number | null;
+  gatewayLoad?: number | null;
+}
+
 export class TzoneGateway {
   private io: SocketIOServer | null = null;
 
@@ -25,8 +37,12 @@ export class TzoneGateway {
     this.io = io;
   }
 
-  broadcastReading(payload: TzoneReadingEvent): void {
+  broadcastTzoneReading(payload: TzoneReadingEvent): void {
     this.io?.emit('tzone:reading', payload);
+  }
+
+  broadcastG1Reading(payload: G1ReadingEvent): void {
+    this.io?.emit('g1:reading', payload);
   }
 }
 

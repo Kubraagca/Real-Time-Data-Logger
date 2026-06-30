@@ -15,7 +15,7 @@ class TzoneMobileApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Gateway Monitor',
+      title: 'Tzone Monitor',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(
@@ -208,22 +208,14 @@ class _TzoneDashboardPageState extends State<TzoneDashboardPage> {
     await _loadLatestReadings();
   }
 
-  bool _isGatewayReading(DeviceReading reading) {
-    return reading.deviceType == 'Gateway';
-  }
-
   @override
   Widget build(BuildContext context) {
     final List<DeviceReading> readings = _devices.values.toList()
       ..sort((DeviceReading a, DeviceReading b) => b.receivedAt.compareTo(a.receivedAt));
-    final List<DeviceReading> sensorReadings =
-        readings.where((DeviceReading reading) => !_isGatewayReading(reading)).toList();
-    final List<DeviceReading> gatewayReadings =
-        readings.where(_isGatewayReading).toList();
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Gateway Monitor'),
+        title: const Text('Tzone Monitor'),
         titleTextStyle: Theme.of(context).textTheme.titleLarge?.copyWith(
               color: const Color(0xFF102A43),
               fontWeight: FontWeight.w700,
@@ -249,7 +241,7 @@ class _TzoneDashboardPageState extends State<TzoneDashboardPage> {
             ],
             _MessageCard(
               message: _isSocketConnected
-                  ? 'Canli baglanti aktif. Gateway HTTP verileri ayri alanlarda gosteriliyor.'
+                  ? 'Canli baglanti aktif. Tzone TCP verileri anlik gosteriliyor.'
                   : 'Canli baglanti bekleniyor. API ile son kayitlar gosteriliyor.',
               color: _isSocketConnected ? const Color(0xFF0F766E) : const Color(0xFF9A6700),
             ),
@@ -257,22 +249,9 @@ class _TzoneDashboardPageState extends State<TzoneDashboardPage> {
             if (readings.isEmpty)
               const _EmptyState()
             else ...<Widget>[
-              _SectionHeader(title: 'Isi Sensorleri', count: sensorReadings.length),
+              _SectionHeader(title: 'Tzone Sicaklik Olcumleri', count: readings.length),
               const SizedBox(height: 12),
-              if (sensorReadings.isEmpty)
-                const _InlineEmptyState(message: 'Henuz isi sensor verisi yok.')
-              else
-                ...sensorReadings.map((DeviceReading reading) => Padding(
-                      padding: const EdgeInsets.only(bottom: 12),
-                      child: _ReadingCard(reading: reading),
-                    )),
-              const SizedBox(height: 20),
-              _SectionHeader(title: 'Gateway Cihazlari', count: gatewayReadings.length),
-              const SizedBox(height: 12),
-              if (gatewayReadings.isEmpty)
-                const _InlineEmptyState(message: 'Henuz gateway verisi yok.')
-              else
-                ...gatewayReadings.map((DeviceReading reading) => Padding(
+              ...readings.map((DeviceReading reading) => Padding(
                       padding: const EdgeInsets.only(bottom: 12),
                       child: _ReadingCard(reading: reading),
                     )),
@@ -590,7 +569,16 @@ class DeviceReading {
   final String rawHex;
 
   String get displayId => bleName == null || bleName!.isEmpty ? imei : '${bleName!} - $imei';
-  String get deviceTypeText => deviceType ?? source.toUpperCase();
+  String? get normalizedDeviceType {
+    final String? value = deviceType?.trim();
+    if (value == null || value.isEmpty) {
+      return null;
+    }
+
+    return value.toLowerCase() == 'gateway' ? 'Gateway' : value;
+  }
+
+  String get deviceTypeText => normalizedDeviceType ?? source.toUpperCase();
   String get gatewayText => gatewayMac ?? '-';
   String get rssiText => rssi == null ? '-' : '${rssi!.toStringAsFixed(0)} dBm';
   String get gatewayFreeText => gatewayFree == null ? '-' : '${gatewayFree!.toStringAsFixed(0)} MB';

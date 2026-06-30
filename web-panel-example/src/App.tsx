@@ -1,111 +1,72 @@
 import { useEffect, useState } from 'react';
 import { io, Socket } from 'socket.io-client';
 
-type TzoneReadingEvent = {
-  imei: string | null;
-  source: 'tzone' | 'g1';
-  deviceType: string | null;
-  gatewayMac: string | null;
-  bleName: string | null;
-  rssi: number | null;
-  gatewayFree: number | null;
-  gatewayLoad: number | null;
-  temperature: number | null;
-  humidity: number | null;
-  light: number | null;
-  battery: number | null;
-  receivedAt: string;
-  rawHex: string;
-  packetIndex: number | null;
+type G1ReadingEvent = {
+  timestamp: string;
+  type: string | null;
+  mac: string | null;
+  bleNo?: number | null;
+  bleName?: string;
+  rssi?: number | null;
+  rawData?: string | null;
+  gatewayFree?: number | null;
+  gatewayLoad?: number | null;
 };
 
-type TzoneDeviceSummary = {
-  imei: string;
-  source?: 'tzone' | 'g1';
-  deviceType: string | null;
-  gatewayMac: string | null;
-  bleName: string | null;
-  rssi: number | null;
-  name: string | null;
-  lastSeenAt: string;
-  isOnline: boolean;
-  onlineStatus: 'online' | 'offline';
-  latestReading: {
-    source?: 'tzone' | 'g1';
-    deviceType: string | null;
-    gatewayMac: string | null;
-    bleName: string | null;
-    rssi: number | null;
-    gatewayFree: number | null;
-    gatewayLoad: number | null;
-    temperature: number | null;
-    humidity: number | null;
-    light: number | null;
-    battery: number | null;
-    receivedAt: string;
-    rawHex: string;
-    packetIndex: number | null;
-  } | null;
-};
+type DeviceTab = 'beacon' | 'gateway';
 
 const API_BASE_URL = 'https://real-time-data-logger-production.up.railway.app';
 
-function formatMetric(value: number | null, suffix: string) {
-  return value === null ? '-' : `${value}${suffix}`;
-}
-
-function formatDeviceLabel(row: TzoneDeviceSummary) {
-  return row.bleName ?? row.imei ?? '-';
-}
-
-function formatDeviceType(row: TzoneDeviceSummary) {
-  return row.latestReading?.deviceType ?? row.deviceType ?? row.latestReading?.source?.toUpperCase() ?? row.source?.toUpperCase() ?? 'UNKNOWN';
-}
-
-function formatLastSeen(value: string | null | undefined) {
+function normalizeType(value: string | null | undefined) {
   if (!value) {
-    return '-';
+    return 'Unknown';
   }
 
+  const trimmed = value.trim();
+  return trimmed || 'Unknown';
+}
+
+function isGatewayReading(reading: G1ReadingEvent) {
+  return normalizeType(reading.type).toLowerCase() === 'gateway';
+}
+
+function formatTimestamp(value: string) {
   const date = new Date(value);
   return Number.isNaN(date.getTime()) ? value : date.toLocaleString();
 }
 
-function isGatewayRow(row: TzoneDeviceSummary) {
-  return (row.latestReading?.deviceType ?? row.deviceType) === 'Gateway';
+function formatNumber(value: number | null | undefined, suffix = '') {
+  return typeof value === 'number' ? `${value}${suffix}` : '-';
 }
 
-function DeviceTable({ rows }: { rows: TzoneDeviceSummary[] }) {
+function ReadingTable({ rows }: { rows: G1ReadingEvent[] }) {
   return (
     <table>
       <thead>
         <tr>
-          <th>Cihaz</th>
-          <th>Tip</th>
-          <th>Sicaklik</th>
-          <th>Nem</th>
-          <th>Durum</th>
-          <th>Batarya</th>
-          <th>Gateway</th>
+          <th>Timestamp</th>
+          <th>Type</th>
+          <th>MAC</th>
+          <th>BLE No</th>
+          <th>BLE Name</th>
           <th>RSSI</th>
-          <th>Son gorulme</th>
+          <th>Gateway Free</th>
+          <th>Gateway Load</th>
+          <th>Raw Data</th>
         </tr>
       </thead>
       <tbody>
         {rows.map((row, index) => (
-          <tr key={`${row.imei}-${row.latestReading?.receivedAt ?? row.lastSeenAt}-${index}`}>
-            <td>
-              <strong>{formatDeviceLabel(row)}</strong>
-              <div>{row.imei ?? '-'}</div>
-            </td>
-            <td>{formatDeviceType(row)}</td>
-            <td>{formatMetric(row.latestReading?.temperature ?? null, ' C')}</td>
-            <td>{formatMetric(row.latestReading?.humidity ?? null, ' %')}</td>
-            <td>{row.isOnline ? 'Online' : 'Offline'}</td>
-            <td>{formatMetric(row.latestReading?.battery ?? null, ' %')}</td>
-            <td>{row.latestReading?.gatewayMac ?? row.gatewayMac ?? '-'}</td>
-            <td>{formatMetric(row.latestReading?.rssi ?? row.rssi ?? null, ' dBm')}</td>
-            <td>{formatLastSeen(row.lastSeenAt)}</td>
+          <tr key={`${row.mac ?? 'unknown'}-${row.timestamp}-${index}`}>
+            <td>{formatTimestamp(row.timestamp)}</td>
+            <td>{normalizeType(row.type)}</td>
+            <td>{row.mac ?? '-'}</td>
+            <td>{formatNumber(row.bleNo)}</td>
+            <td>{row.bleName && row.bleName.trim() ? row.bleName : '-'}</td>
+            <td>{formatNumber(row.rssi, ' dBm')}</td>
+            <td>{formatNumber(row.gatewayFree, ' MB')}</td>
+            <td>{formatNumber(row.gatewayLoad)}</td>
+            <td>{row.rawData ?? '-'}</td>
           </tr>
         ))}
       </tbody>
@@ -114,17 +75,23 @@ function DeviceTable({ rows }: { rows: TzoneDeviceSummary[] }) {
 }
 
 export function App() {
-  const [rows, setRows] = useState<TzoneDeviceSummary[]>([]);
+  const [rows, setRows] = useState<G1ReadingEvent[]>([]);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const gatewayRows = rows.filter(isGatewayRow);
-  const sensorRows = rows.filter((row) => !isGatewayRow(row));
+  const [activeTab, setActiveTab] = useState<DeviceTab>('beacon');
+
+  const gatewayRows = rows.filter(isGatewayReading);
+  const beaconRows = rows.filter((row) => !isGatewayReading(row));
+  const visibleRows = activeTab === 'beacon' ? beaconRows : gatewayRows;
+  const activeTitle = activeTab === 'beacon' ? 'Beacon Kayitlari' : 'Gateway Kayitlari';
+  const activeEmptyMessage =
+    activeTab === 'beacon' ? 'Henuz beacon verisi yok.' : 'Henuz gateway verisi yok.';
 
   useEffect(() => {
     let socket: Socket | null = null;
 
     const loadInitialData = async () => {
       try {
-        const response = await fetch(`${API_BASE_URL}/api/tzone/devices`);
+        const response = await fetch(`${API_BASE_URL}/api/g1/readings/latest?limit=100`);
 
         if (!response.ok) {
           throw new Error(`HTTP ${response.status}`);
@@ -136,13 +103,13 @@ export function App() {
           throw new Error('API beklenen dizi formatinda donmedi.');
         }
 
-        setRows(data as TzoneDeviceSummary[]);
+        setRows(data as G1ReadingEvent[]);
         setErrorMessage(null);
       } catch (error) {
-        console.error('Failed to load initial device list', error);
+        console.error('Failed to load G1 readings', error);
         setRows([]);
         setErrorMessage(
-          error instanceof Error ? error.message : 'Cihaz listesi yuklenemedi.'
+          error instanceof Error ? error.message : 'Gateway verileri yuklenemedi.'
         );
       }
     };
@@ -153,47 +120,9 @@ export function App() {
       transports: ['polling', 'websocket']
     });
 
-    socket.on('tzone:reading', (reading: TzoneReadingEvent) => {
-      if (!reading.imei) {
-        return;
-      }
-
+    socket.on('g1:reading', (reading: G1ReadingEvent) => {
       setErrorMessage(null);
-
-      setRows((current) => {
-        const imei = reading.imei ?? '';
-        const nextRow: TzoneDeviceSummary = {
-          imei,
-          source: reading.source,
-          deviceType: reading.deviceType,
-          gatewayMac: reading.gatewayMac,
-          bleName: reading.bleName,
-          rssi: reading.rssi,
-          name: null,
-          lastSeenAt: reading.receivedAt,
-          isOnline: true,
-          onlineStatus: 'online',
-          latestReading: {
-            source: reading.source,
-            deviceType: reading.deviceType,
-            gatewayMac: reading.gatewayMac,
-            bleName: reading.bleName,
-            rssi: reading.rssi,
-            gatewayFree: reading.gatewayFree,
-            gatewayLoad: reading.gatewayLoad,
-            temperature: reading.temperature,
-            humidity: reading.humidity,
-            light: reading.light,
-            battery: reading.battery,
-            receivedAt: reading.receivedAt,
-            rawHex: reading.rawHex,
-            packetIndex: reading.packetIndex
-          }
-        };
-
-        const filtered = current.filter((row) => row.imei !== imei);
-        return [nextRow, ...filtered];
-      });
+      setRows((current) => [reading, ...current].slice(0, 100));
     });
 
     return () => {
@@ -206,27 +135,46 @@ export function App() {
       <section className="panel">
         <header className="panel-header">
           <p className="eyebrow">Live telemetry</p>
-          <h1>Gateway ve Isi Sensorleri</h1>
+          <h1>G1 Gateway Kayitlari</h1>
           <p className="lede">
-            Gateway HTTP POST akisi ile gelen gercek cihaz verileri ayri alanlarda gosterilir.
+            Gateway cihazindan gelen JSON-LONG kayitlari, geldigi formata yakin sekilde burada listelenir.
           </p>
         </header>
 
         <div className="table-wrap">
           {errorMessage ? <p className="status-banner">{errorMessage}</p> : null}
+          <div className="tab-list" role="tablist" aria-label="G1 cihaz kategorileri">
+            <button
+              type="button"
+              role="tab"
+              aria-selected={activeTab === 'beacon'}
+              className={`tab-button${activeTab === 'beacon' ? ' is-active' : ''}`}
+              onClick={() => setActiveTab('beacon')}
+            >
+              <span>Beacon Kayitlari</span>
+              <strong>{beaconRows.length}</strong>
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={activeTab === 'gateway'}
+              className={`tab-button${activeTab === 'gateway' ? ' is-active' : ''}`}
+              onClick={() => setActiveTab('gateway')}
+            >
+              <span>Gateway Kayitlari</span>
+              <strong>{gatewayRows.length}</strong>
+            </button>
+          </div>
           <section className="data-group">
             <div className="group-header">
-              <h2>Isi Sensorleri</h2>
-              <span>{sensorRows.length} cihaz</span>
+              <h2>{activeTitle}</h2>
+              <span>{visibleRows.length} kayit</span>
             </div>
-            {sensorRows.length > 0 ? <DeviceTable rows={sensorRows} /> : <p className="empty-inline">Henuz sensor verisi yok.</p>}
-          </section>
-          <section className="data-group">
-            <div className="group-header">
-              <h2>Gateway Cihazlari</h2>
-              <span>{gatewayRows.length} cihaz</span>
-            </div>
-            {gatewayRows.length > 0 ? <DeviceTable rows={gatewayRows} /> : <p className="empty-inline">Henuz gateway verisi yok.</p>}
+            {visibleRows.length > 0 ? (
+              <ReadingTable rows={visibleRows} />
+            ) : (
+              <p className="empty-inline">{activeEmptyMessage}</p>
+            )}
           </section>
         </div>
       </section>

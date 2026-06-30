@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="tr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>RealTimeDataLogger Projesi</title>
+    <style>
+      :root {
+        --bg: #0f172a;
+        --panel: #111827;
+        --panel-2: #1f2937;
+        --text: #e5e7eb;
+        --muted: #9ca3af;
+        --accent: #38bdf8;
+        --accent-2: #22c55e;
+        --warn: #f59e0b;
+      }
+
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+        background: linear-gradient(135deg, var(--bg), #1e293b);
+        color: var(--text);
+        line-height: 1.6;
+      }
+
+      .container {
+        max-width: 1100px;
+        margin: 0 auto;
+        padding: 32px 20px 60px;
+      }
+
+      .hero {
+        background: rgba(17, 24, 39, 0.9);
+        border: 1px solid rgba(56, 189, 248, 0.2);
+        border-radius: 20px;
+        padding: 28px;
+        box-shadow: 0 10px 40px rgba(0,0,0,0.25);
+      }
+
+      h1, h2, h3 { margin-top: 0; }
+      .badge {
+        display: inline-block;
+        margin-bottom: 12px;
+        padding: 6px 10px;
+        border-radius: 999px;
+        background: rgba(56, 189, 248, 0.15);
+        color: var(--accent);
+        font-size: 0.9rem;
+        font-weight: 600;
+      }
+
+      .grid {
+        display: grid;
+        gap: 16px;
+        grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+        margin-top: 20px;
+      }
+
+      .card {
+        background: var(--panel-2);
+        border: 1px solid rgba(255,255,255,0.08);
+        border-radius: 16px;
+        padding: 18px;
+      }
+
+      .card h3 { color: var(--accent); margin-bottom: 8px; }
+      .card p { color: var(--muted); margin: 0; }
+
+      .flow {
+        margin-top: 26px;
+        background: rgba(17, 24, 39, 0.95);
+        border-radius: 20px;
+        padding: 24px;
+        border: 1px solid rgba(255,255,255,0.08);
+      }
+
+      .step-row {
+        display: grid;
+        grid-template-columns: 1fr auto 1fr auto 1fr;
+        align-items: center;
+        gap: 12px;
+        margin-top: 16px;
+      }
+
+      .step {
+        background: var(--panel-2);
+        border-radius: 14px;
+        padding: 14px;
+        min-height: 110px;
+      }
+
+      .step strong { color: var(--accent-2); }
+      .arrow {
+        color: var(--accent);
+        font-size: 1.4rem;
+        font-weight: bold;
+      }
+
+      ul { padding-left: 20px; }
+      code {
+        background: rgba(255,255,255,0.08);
+        padding: 2px 6px;
+        border-radius: 6px;
+        color: #fef3c7;
+      }
+
+      .footer {
+        margin-top: 24px;
+        color: var(--muted);
+        font-size: 0.95rem;
+      }
+
+      @media (max-width: 760px) {
+        .step-row {
+          grid-template-columns: 1fr;
+        }
+        .arrow { display: none; }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <section class="hero">
+        <div class="badge">Realtime Data Logger</div>
+        <h1>Bu proje ne yapıyor?</h1>
+        <p>
+          Bu proje, Tzone TT18-4G-M cihazından gelen sıcaklık, nem, batarya ve ışık verilerini
+          alıp backend üzerinden veritabanına kaydediyor ve aynı anda canlı kullanıcı arayüzlerine
+          yayıyor.
+        </p>
+
+        <div class="grid">
+          <div class="card">
+            <h3>1. Veri toplama</h3>
+            <p>Tzone cihazı TCP bağlantısı üzerinden veri gönderir.</p>
+          </div>
+          <div class="card">
+            <h3>2. İşleme</h3>
+            <p>Backend gelen paketleri okur, ayrıştırır ve kaydeder.</p>
+          </div>
+          <div class="card">
+            <h3>3. Yayınlama</h3>
+            <p>Socket.IO ile canlı verilere anlık erişim sağlanır.</p>
+          </div>
+          <div class="card">
+            <h3>4. Görüntüleme</h3>
+            <p>Web panel veya mobil örnek uygulama bu verileri gösterir.</p>
+          </div>
+        </div>
+      </section>
+
+      <section class="flow">
+        <h2>Nasıl haberleşiyor?</h2>
+        <div class="step-row">
+          <div class="step">
+            <strong>Adım 1</strong><br />
+            Tzone cihazı, backend’in TCP sunucusuna veri gönderir.
+          </div>
+          <div class="arrow">→</div>
+          <div class="step">
+            <strong>Adım 2</strong><br />
+            Backend, gelen veriyi alır. Ham veri loglanır ve paket ayrıştırılır.
+          </div>
+          <div class="arrow">→</div>
+          <div class="step">
+            <strong>Adım 3</strong><br />
+            Ayrıştırılan değerler veritabanına kaydedilir ve Socket.IO ile yayınlanır.
+          </div>
+        </div>
+
+        <div class="step-row">
+          <div class="step">
+            <strong>Adım 4</strong><br />
+            Web uygulama veya mobil örnek, <code>tzone:reading</code> olayını dinler.
+          </div>
+          <div class="arrow">→</div>
+          <div class="step">
+            <strong>Adım 5</strong><br />
+            Kullanıcı arayüzü yeni veriyi anında ekrana yansıtır.
+          </div>
+          <div class="arrow">→</div>
+          <div class="step">
+            <strong>Adım 6</strong><br />
+            İsterseniz API üzerinden geçmiş verileri de sorgulayabilirsiniz.
+          </div>
+        </div>
+      </section>
+
+      <section class="card" style="margin-top: 24px;">
+        <h2>Temel bileşenler</h2>
+        <ul>
+          <li><strong>Backend:</strong> Node.js + Express + TypeScript</li>
+          <li><strong>TCP Sunucu:</strong> Tzone cihazlarından gelen veriyi dinler</li>
+          <li><strong>Parser:</strong> Ham paketleri okunabilir verilere dönüştürür</li>
+          <li><strong>Veritabanı:</strong> Prisma ile saklama yapılır</li>
+          <li><strong>Canlı iletişim:</strong> Socket.IO ile anlık yayın</li>
+        </ul>
+      </section>
+
+      <section class="card" style="margin-top: 24px;">
+        <h2>Örnek akış</h2>
+        <p>
+          Cihaz veri gönderdiğinde backend önce paketi alır, sonra veriyi işler. Eğer veri
+          geçerli ise veritabanına kayıt eklenir ve web tarafına canlı olarak iletilir.
+        </p>
+      </section>
+
+      <div class="footer">
+        Bu sayfa, projenin mantığını anlatmak için hazırlanmıştır.
+      </div>
+    </div>
+  </body>
+</html>

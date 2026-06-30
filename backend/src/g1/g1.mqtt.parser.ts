@@ -28,6 +28,15 @@ function asString(value: unknown): string | null {
   return trimmed.length > 0 ? trimmed : null;
 }
 
+function normalizeDeviceType(value: unknown): string | null {
+  const raw = asString(value);
+  if (raw === null) {
+    return null;
+  }
+
+  return raw.toLowerCase() === 'gateway' ? 'Gateway' : raw;
+}
+
 function normalizeMac(value: unknown): string | null {
   const raw = asString(value);
   if (raw === null) {
@@ -80,7 +89,7 @@ function parseG1JsonRecords(
   return records
     .filter(isRecord)
     .map((record) => {
-      const deviceType = asString(record.type);
+      const deviceType = normalizeDeviceType(record.type);
       const identifier = normalizeMac(record.mac);
 
       return {

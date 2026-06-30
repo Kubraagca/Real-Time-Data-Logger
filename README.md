@@ -1,6 +1,6 @@
 # RealTimeDataLogger
 
-Bu proje, Tzone TT18-4G-M cihazindan gelen TCP verilerini ve G1 gateway uzerinden gelen MQTT sensor verilerini alip veritabanina kaydeden ve ayni veriyi Socket.IO ile istemcilere anlik ileten bir backend icerir.
+Bu proje, Tzone TT18-4G-M cihazindan gelen TCP verilerini ve G1 gateway uzerinden gelen beacon/gateway verilerini alip veritabanina kaydeden ve istemcilere anlik ileten bir backend icerir.
 
 ## Klasorler
 
@@ -55,23 +55,41 @@ Notlar:
 - Bos ping paketlerinde backend `200` doner ve cihaz veri gondermeye devam eder.
 - Test icin alternatif endpoint: `POST /api/g1/http`
 
-## API endpointleri
+## Tzone API endpointleri
 
 - `GET /health`
 - `GET /api/tzone/readings/latest`
 - `GET /api/tzone/devices`
 - `GET /api/tzone/devices/:imei/readings?limit=100`
 
+Bu endpointler yalnizca Tzone TCP cihaz verilerini doner.
+
+## G1 API endpointleri
+
+- `POST /api/g1/http`
+- `POST /gw/:gatewayMac/status`
+- `GET /api/g1/readings/latest`
+- `GET /api/g1/devices`
+- `GET /api/g1/devices/:imei/readings?limit=100`
+
+Bu endpointler yalnizca G1 gateway ve beacon verilerini doner.
+
 `GET /api/tzone/devices` cevabinda her cihaz icin `isOnline` ve `onlineStatus`
 alanlari da doner. Varsayilan olarak son `10` dakika icinde veri geldiyse cihaz
 `online` sayilir. Bu pencere `TZONE_ONLINE_WINDOW_MINUTES` ile degistirilebilir.
 
-## Socket event
+## Socket eventleri
 
-Event adi:
+Tzone TCP event'i:
 
 ```text
 tzone:reading
+```
+
+G1 gateway/beacon event'i:
+
+```text
+g1:reading
 ```
 
 Payload ornegi:

@@ -8,6 +8,8 @@ Bu klasor, `Tzone Mobile` adli, Tzone backend'ine baglanan ornek bir Flutter mob
 - Socket.IO ile `tzone:reading` event'ini dinler
 - IMEI, sicaklik, nem, pil ve raw hex bilgisini gosterir
 
+Not: Bu uygulama yalnizca Tzone TCP sicaklik olcer verisini gosterir. G1 gateway/beacon verileri burada listelenmez.
+
 ## Gerekli Bilgi
 
 Uygulama acilinca iki URL ister:
