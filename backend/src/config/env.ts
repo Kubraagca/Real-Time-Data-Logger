@@ -19,7 +19,13 @@ const envSchema = z.object({
   G1_MQTT_KEEPALIVE: z.coerce.number().int().positive().default(30),
   DATABASE_URL: z.string().trim().optional(),
   SHADOW_DATABASE_URL: z.string().trim().optional(),
-  WEB_SOCKET_CORS_ORIGIN: z.string().default('*')
+  WEB_SOCKET_CORS_ORIGIN: z.string().default('*'),
+  FIREBASE_PROJECT_ID: z.string().trim().optional(),
+  FIREBASE_CLIENT_EMAIL: z.string().trim().optional(),
+  FIREBASE_PRIVATE_KEY: z.string().trim().optional(),
+  FIREBASE_ALERT_TOPIC: z.string().trim().default('critical-temperature-alerts'),
+  TZONE_CRITICAL_TEMP_C: z.coerce.number().default(40),
+  TZONE_CRITICAL_ALERT_COOLDOWN_MINUTES: z.coerce.number().int().positive().default(30)
 });
 
 export const env = envSchema.parse(process.env);

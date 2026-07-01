@@ -6,6 +6,7 @@ import app from './app';
 import { env } from './config/env';
 import { disconnectPrisma, isDatabaseConfigured } from './config/prisma';
 import { createG1MqttClient } from './g1/g1.mqtt.client';
+import { firebaseNotificationService } from './notifications/firebase-notification.service';
 import { tzoneGateway } from './tzone/tzone.gateway';
 import { createTzoneTcpServer } from './tzone/tzone.tcp.server';
 
@@ -27,6 +28,7 @@ async function bootstrap() {
   });
 
   tzoneGateway.attach(io);
+  firebaseNotificationService.start();
 
   const tcpServer = createTzoneTcpServer();
   const g1MqttClient = createG1MqttClient();

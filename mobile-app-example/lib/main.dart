@@ -1,12 +1,48 @@
 import 'dart:async';
 import 'dart:convert';
 
+import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:socket_io_client/socket_io_client.dart' as io;
 
-void main() {
+const String kCriticalTemperatureTopic = 'critical-temperature-alerts';
+
+@pragma('vm:entry-point')
+Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
+  await Firebase.initializeApp();
+}
+
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
+  await Firebase.initializeApp();
+  await PushNotificationService.instance.initialize();
   runApp(const TzoneMobileApp());
+}
+
+class PushNotificationService {
+  PushNotificationService._();
+
+  static final PushNotificationService instance = PushNotificationService._();
+  bool _initialized = false;
+
+  Future<void> initialize() async {
+    if (_initialized) {
+      return;
+    }
+
+    final NotificationSettings permissionSettings =
+        await FirebaseMessaging.instance.requestPermission(alert: true, badge: true, sound: true);
+
+    if (permissionSettings.authorizationStatus == AuthorizationStatus.authorized ||
+        permissionSettings.authorizationStatus == AuthorizationStatus.provisional) {
+      await FirebaseMessaging.instance.subscribeToTopic(kCriticalTemperatureTopic);
+    }
+
+    _initialized = true;
+  }
 }
 
 class TzoneMobileApp extends StatelessWidget {
@@ -46,10 +82,13 @@ class _TzoneDashboardPageState extends State<TzoneDashboardPage> {
   );
 
   final Map<String, DeviceReading> _devices = <String, DeviceReading>{};
+  final List<G1Reading> _g1Readings = <G1Reading>[];
   io.Socket? _socket;
   Timer? _refreshTimer;
   bool _isConnecting = false;
   bool _isSocketConnected = false;
+  bool _showConnectionSettings = false;
+  SourceTab _activeSourceTab = SourceTab.tzone;
   String? _errorMessage;
 
   @override
@@ -102,18 +141,27 @@ class _TzoneDashboardPageState extends State<TzoneDashboardPage> {
     }
 
     try {
-      final Uri uri = Uri.parse('$baseUrl/api/tzone/readings/latest?limit=50');
-      final http.Response response = await http.get(uri);
+      final Uri tzoneUri = Uri.parse('$baseUrl/api/tzone/readings/latest?limit=50');
+      final Uri g1Uri = Uri.parse('$baseUrl/api/g1/readings/latest?limit=50');
+      final List<http.Response> responses = await Future.wait(<Future<http.Response>>[
+        http.get(tzoneUri),
+        http.get(g1Uri),
+      ]);
 
-      if (response.statusCode != 200) {
-        throw Exception('HTTP ${response.statusCode}');
+      if (responses[0].statusCode != 200) {
+        throw Exception('TZONE HTTP ${responses[0].statusCode}');
       }
 
-      final List<dynamic> data = jsonDecode(response.body) as List<dynamic>;
+      if (responses[1].statusCode != 200) {
+        throw Exception('G1 HTTP ${responses[1].statusCode}');
+      }
+
+      final List<dynamic> tzoneData = jsonDecode(responses[0].body) as List<dynamic>;
+      final List<dynamic> g1Data = jsonDecode(responses[1].body) as List<dynamic>;
 
       setState(() {
         _devices.clear();
-        for (final dynamic item in data) {
+        for (final dynamic item in tzoneData) {
           final DeviceReading reading = DeviceReading.fromApi(item as Map<String, dynamic>);
           final String key = reading.imei.isEmpty ? 'unknown-${reading.receivedAt}' : reading.imei;
           final DeviceReading? current = _devices[key];
@@ -122,6 +170,12 @@ class _TzoneDashboardPageState extends State<TzoneDashboardPage> {
             _devices[key] = reading;
           }
         }
+
+        _g1Readings
+          ..clear()
+          ..addAll(
+            g1Data.map((dynamic item) => G1Reading.fromApi(item as Map<String, dynamic>)),
+          );
       });
     } catch (error) {
       setState(() {
@@ -144,9 +198,12 @@ class _TzoneDashboardPageState extends State<TzoneDashboardPage> {
     final io.Socket socket = io.io(
       socketUrl,
       io.OptionBuilder()
-          .setTransports(<String>['polling', 'websocket'])
+          .setTransports(<String>['websocket'])
           .disableAutoConnect()
           .enableForceNew()
+          .enableReconnection()
+          .setReconnectionAttempts(10)
+          .setReconnectionDelay(1500)
           .build(),
     );
 
@@ -209,6 +266,21 @@ class _TzoneDashboardPageState extends State<TzoneDashboardPage> {
       });
     });
 
+    socket.on('g1:reading', (dynamic payload) {
+      if (!mounted || payload is! Map) {
+        return;
+      }
+
+      final G1Reading reading = G1Reading.fromApi(Map<String, dynamic>.from(payload));
+
+      setState(() {
+        _g1Readings.insert(0, reading);
+        if (_g1Readings.length > 50) {
+          _g1Readings.removeRange(50, _g1Readings.length);
+        }
+      });
+    });
+
     socket.connect();
     _socket = socket;
   }
@@ -219,10 +291,17 @@ class _TzoneDashboardPageState extends State<TzoneDashboardPage> {
 
   @override
   Widget build(BuildContext context) {
+    final double gatewayListHeight = MediaQuery.of(context).size.height * 0.58;
     final List<DeviceReading> readings = _devices.values.toList()
       ..sort((DeviceReading a, DeviceReading b) => b.receivedAt.compareTo(a.receivedAt));
     final DeviceReading? latestReading = readings.isEmpty ? null : readings.first;
     final int onlineCount = readings.where((DeviceReading reading) => reading.hasFreshMetrics).length;
+    final List<G1Reading> gatewayReadings =
+        _g1Readings.where((G1Reading reading) => reading.isGateway).toList();
+    final List<G1Reading> beaconReadings =
+        _g1Readings.where((G1Reading reading) => !reading.isGateway).toList();
+    final G1Reading? latestG1Reading = _g1Readings.isEmpty ? null : _g1Readings.first;
+    final bool showingTzone = _activeSourceTab == SourceTab.tzone;
 
     return Scaffold(
       body: RefreshIndicator(
@@ -232,68 +311,124 @@ class _TzoneDashboardPageState extends State<TzoneDashboardPage> {
           children: <Widget>[
             _HeroSection(
               isSocketConnected: _isSocketConnected,
-              readingCount: readings.length,
-              latestSeenAt: latestReading?.receivedAt,
+              readingCount: showingTzone ? readings.length : _g1Readings.length,
+              latestSeenAtText: showingTzone
+                  ? (latestReading == null ? null : _formatDate(latestReading.receivedAt))
+                  : (latestG1Reading == null ? null : latestG1Reading.timestampText),
+              title: showingTzone ? 'Tzone Monitor' : 'Gateway ve Beacon',
+              subtitle: showingTzone
+                  ? 'Tzone isi sensoru verileri bu ekranda listelenir.'
+                  : 'G1 gateway ve beacon kayitlari bu ekranda listelenir.',
             ),
             Padding(
-              padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: <Widget>[
+                  _SourceTabs(
+                    activeSourceTab: _activeSourceTab,
+                    onChanged: (SourceTab tab) {
+                      setState(() {
+                        _activeSourceTab = tab;
+                      });
+                    },
+                  ),
+                  const SizedBox(height: 12),
                   _SummaryGrid(
-                    cards: <_SummaryCardData>[
-                      _SummaryCardData(
-                        label: 'Kayit',
-                        value: '$readings.length',
-                        note: 'Son 50 veri',
-                      ),
-                      _SummaryCardData(
-                        label: 'Aktif Sensor',
-                        value: '$onlineCount',
-                        note: 'Olcumlu cihaz',
-                      ),
-                      _SummaryCardData(
-                        label: 'Son Sicaklik',
-                        value: latestReading?.temperatureText ?? '-',
-                        note: 'En guncel veri',
-                      ),
-                      _SummaryCardData(
-                        label: 'Son Nem',
-                        value: latestReading?.humidityText ?? '-',
-                        note: 'En guncel veri',
-                      ),
-                    ],
+                    cards: showingTzone
+                        ? <_SummaryCardData>[
+                            _SummaryCardData(
+                              label: 'Kayit',
+                              value: '${readings.length}',
+                              note: 'Son 50 veri',
+                            ),
+                            _SummaryCardData(
+                              label: 'Aktif Sensor',
+                              value: '$onlineCount',
+                              note: 'Olcumlu cihaz',
+                            ),
+                          ]
+                        : <_SummaryCardData>[
+                            _SummaryCardData(
+                              label: 'Toplam',
+                              value: '${_g1Readings.length}',
+                              note: 'Son 50 kayit',
+                            ),
+                            _SummaryCardData(
+                              label: 'Beacon',
+                              value: '${beaconReadings.length}',
+                              note: 'Algilanan beacon',
+                            ),
+                          ],
                   ),
-                  const SizedBox(height: 16),
-                  _ConnectionCard(
-                    apiBaseUrlController: _apiBaseUrlController,
-                    socketUrlController: _socketUrlController,
-                    isConnecting: _isConnecting,
-                    isSocketConnected: _isSocketConnected,
-                    onConnectPressed: _connect,
-                  ),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 12),
+                  if (showingTzone)
+                    _QuickStatsRow(
+                      temperatureText: latestReading?.temperatureText ?? '-',
+                      humidityText: latestReading?.humidityText ?? '-',
+                    )
+                  else
+                    _QuickStatsRow(
+                      temperatureText: latestG1Reading?.typeText ?? '-',
+                      humidityText: latestG1Reading?.rssiText ?? '-',
+                      firstLabel: 'Son Tip',
+                      secondLabel: 'Son RSSI',
+                    ),
+                  const SizedBox(height: 12),
                   if (_errorMessage != null) ...<Widget>[
                     _MessageCard(message: _errorMessage!, color: const Color(0xFFB91C1C)),
-                    const SizedBox(height: 16),
+                    const SizedBox(height: 12),
                   ],
                   _MessageCard(
                     message: _isSocketConnected
-                        ? 'Canli baglanti aktif. Yeni Tzone verileri geldikce liste otomatik yenilenir.'
+                        ? 'Canli baglanti aktif. Yeni veriler geldikce liste otomatik yenilenir.'
                         : 'Socket baglantisi bekleniyor. API ile 15 saniyede bir otomatik yenileme yapiliyor.',
                     color:
                         _isSocketConnected ? const Color(0xFF0F766E) : const Color(0xFF9A6700),
                   ),
-                  const SizedBox(height: 18),
-                  _SectionHeader(title: 'Canli Tzone Akisi', count: readings.length),
-                  const SizedBox(height: 12),
-                  if (readings.isEmpty)
-                    const _EmptyState()
-                  else
+                  const SizedBox(height: 14),
+                  _SectionHeader(
+                    title: showingTzone ? 'Canli Tzone Akisi' : 'Canli Gateway ve Beacon Akisi',
+                    count: showingTzone ? readings.length : _g1Readings.length,
+                  ),
+                  const SizedBox(height: 10),
+                  if (showingTzone && readings.isEmpty)
+                    const _EmptyState(message: 'Henuz Tzone verisi yok')
+                  else if (!showingTzone && _g1Readings.isEmpty)
+                    const _EmptyState(message: 'Henuz gateway veya beacon verisi yok')
+                  else if (showingTzone)
                     ...readings.map((DeviceReading reading) => Padding(
-                          padding: const EdgeInsets.only(bottom: 12),
+                          padding: const EdgeInsets.only(bottom: 10),
                           child: _ReadingCard(reading: reading),
-                        )),
+                        ))
+                  else
+                    Container(
+                      constraints: BoxConstraints(
+                        minHeight: 220,
+                        maxHeight: gatewayListHeight,
+                      ),
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(18),
+                      ),
+                      child: Scrollbar(
+                        thumbVisibility: true,
+                        child: ListView.separated(
+                          primary: false,
+                          padding: EdgeInsets.zero,
+                          itemCount: _g1Readings.length,
+                          separatorBuilder: (_, __) => const SizedBox(height: 10),
+                          itemBuilder: (BuildContext context, int index) {
+                            final G1Reading reading = _g1Readings[index];
+
+                            return _G1ReadingCard(
+                              reading: reading,
+                              gatewayCount: gatewayReadings.length,
+                              beaconCount: beaconReadings.length,
+                            );
+                          },
+                        ),
+                      ),
+                    ),
                 ],
               ),
             ),
@@ -308,17 +443,21 @@ class _HeroSection extends StatelessWidget {
   const _HeroSection({
     required this.isSocketConnected,
     required this.readingCount,
-    required this.latestSeenAt,
+    required this.latestSeenAtText,
+    required this.title,
+    required this.subtitle,
   });
 
   final bool isSocketConnected;
   final int readingCount;
-  final DateTime? latestSeenAt;
+  final String? latestSeenAtText;
+  final String title;
+  final String subtitle;
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.fromLTRB(20, 24, 20, 24),
+      padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
       decoration: const BoxDecoration(
         gradient: LinearGradient(
           colors: <Color>[Color(0xFFC96D00), Color(0xFF0F766E)],
@@ -334,7 +473,7 @@ class _HeroSection extends StatelessWidget {
             Row(
               children: <Widget>[
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                   decoration: BoxDecoration(
                     color: Colors.white.withOpacity(0.16),
                     borderRadius: BorderRadius.circular(999),
@@ -358,25 +497,100 @@ class _HeroSection extends StatelessWidget {
                 ),
               ],
             ),
-            const SizedBox(height: 18),
+                const SizedBox(height: 12),
             Text(
-              'Tzone Monitor',
-              style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+              title,
+              style: Theme.of(context).textTheme.headlineSmall?.copyWith(
                     color: Colors.white,
                     fontWeight: FontWeight.w800,
                   ),
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 6),
             Text(
-              latestSeenAt == null
-                  ? 'Tzone isi sensoru verileri bu ekranda listelenir.'
-                  : 'Son veri: ${_formatDate(latestSeenAt!)}',
-              style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+              latestSeenAtText == null
+                  ? subtitle
+                  : 'Son veri: $latestSeenAtText',
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                     color: Colors.white.withOpacity(0.92),
                   ),
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+enum SourceTab { tzone, g1 }
+
+class _SourceTabs extends StatelessWidget {
+  const _SourceTabs({
+    required this.activeSourceTab,
+    required this.onChanged,
+  });
+
+  final SourceTab activeSourceTab;
+  final ValueChanged<SourceTab> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: <Widget>[
+        Expanded(
+          child: _TabButton(
+            label: 'Isi Sensorleri',
+            isActive: activeSourceTab == SourceTab.tzone,
+            onPressed: () => onChanged(SourceTab.tzone),
+          ),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: _TabButton(
+            label: 'Gateway ve Beacon',
+            isActive: activeSourceTab == SourceTab.g1,
+            onPressed: () => onChanged(SourceTab.g1),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _TabButton extends StatelessWidget {
+  const _TabButton({
+    required this.label,
+    required this.isActive,
+    required this.onPressed,
+  });
+
+  final String label;
+  final bool isActive;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return FilledButton(
+      onPressed: onPressed,
+      style: FilledButton.styleFrom(
+        backgroundColor: isActive ? const Color(0xFF0F766E) : Colors.white,
+        foregroundColor: isActive ? Colors.white : const Color(0xFF102A43),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(14),
+          side: BorderSide(
+            color: isActive ? const Color(0xFF0F766E) : const Color(0xFFD8E1E8),
+          ),
+        ),
+        elevation: 0,
+      ),
+      child: Text(
+        label,
+        textAlign: TextAlign.center,
+        style: Theme.of(context).textTheme.labelLarge?.copyWith(
+              fontWeight: FontWeight.w700,
+            ),
       ),
     );
   }
@@ -401,55 +615,156 @@ class _SummaryGrid extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GridView.builder(
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      itemCount: cards.length,
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 2,
-        mainAxisSpacing: 12,
-        crossAxisSpacing: 12,
-        childAspectRatio: 1.35,
-      ),
-      itemBuilder: (BuildContext context, int index) {
-        final _SummaryCardData card = cards[index];
+    return LayoutBuilder(
+      builder: (BuildContext context, BoxConstraints constraints) {
+        final bool singleColumn = constraints.maxWidth < 360;
+        final double aspectRatio = constraints.maxWidth < 420 ? 1.6 : 1.95;
 
-        return Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: const Color(0xFFD8E1E8)),
+        return GridView.builder(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          itemCount: cards.length,
+          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: singleColumn ? 1 : 2,
+            mainAxisSpacing: 12,
+            crossAxisSpacing: 12,
+            childAspectRatio: singleColumn ? 2.7 : aspectRatio,
           ),
-          child: Column(
+          itemBuilder: (BuildContext context, int index) {
+            final _SummaryCardData card = cards[index];
+
+            return Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: const Color(0xFFD8E1E8)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: <Widget>[
+                  Text(
+                    card.label,
+                    style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                          color: const Color(0xFF627D98),
+                          fontWeight: FontWeight.w700,
+                        ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    card.value,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                          color: const Color(0xFF102A43),
+                          fontWeight: FontWeight.w800,
+                        ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    card.note,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: const Color(0xFF627D98),
+                        ),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+}
+
+class _QuickStatsRow extends StatelessWidget {
+  const _QuickStatsRow({
+    required this.temperatureText,
+    required this.humidityText,
+    this.firstLabel = 'Son Sicaklik',
+    this.secondLabel = 'Son Nem',
+  });
+
+  final String temperatureText;
+  final String humidityText;
+  final String firstLabel;
+  final String secondLabel;
+
+  @override
+  Widget build(BuildContext context) {
+    return Wrap(
+      spacing: 12,
+      runSpacing: 12,
+      children: <Widget>[
+        _StatPill(
+          icon: Icons.thermostat,
+          label: firstLabel,
+          value: temperatureText,
+          color: const Color(0xFFB45309),
+        ),
+        _StatPill(
+          icon: Icons.water_drop,
+          label: secondLabel,
+          value: humidityText,
+          color: const Color(0xFF0E7490),
+        ),
+      ],
+    );
+  }
+}
+
+class _StatPill extends StatelessWidget {
+  const _StatPill({
+    required this.icon,
+    required this.label,
+    required this.value,
+    required this.color,
+  });
+
+  final IconData icon;
+  final String label;
+  final String value;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0xFFD8E1E8)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: <Widget>[
+          Icon(icon, color: color, size: 16),
+          const SizedBox(width: 8),
+          Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: <Widget>[
               Text(
-                card.label,
-                style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                label,
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
                       color: const Color(0xFF627D98),
-                      fontWeight: FontWeight.w700,
+                      fontWeight: FontWeight.w600,
                     ),
               ),
-              const Spacer(),
+              const SizedBox(height: 1),
               Text(
-                card.value,
-                style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                value,
+                style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                       color: const Color(0xFF102A43),
                       fontWeight: FontWeight.w800,
                     ),
               ),
-              const SizedBox(height: 6),
-              Text(
-                card.note,
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: const Color(0xFF627D98),
-                    ),
-              ),
             ],
           ),
-        );
-      },
+        ],
+      ),
     );
   }
 }
@@ -460,6 +775,8 @@ class _ConnectionCard extends StatelessWidget {
     required this.socketUrlController,
     required this.isConnecting,
     required this.isSocketConnected,
+    required this.isExpanded,
+    required this.onToggleExpanded,
     required this.onConnectPressed,
   });
 
@@ -467,6 +784,8 @@ class _ConnectionCard extends StatelessWidget {
   final TextEditingController socketUrlController;
   final bool isConnecting;
   final bool isSocketConnected;
+  final bool isExpanded;
+  final VoidCallback onToggleExpanded;
   final Future<void> Function() onConnectPressed;
 
   @override
@@ -474,60 +793,77 @@ class _ConnectionCard extends StatelessWidget {
     return Card(
       elevation: 0,
       color: Colors.white,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(22)),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
       child: Padding(
-        padding: const EdgeInsets.all(18),
+        padding: const EdgeInsets.all(14),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: <Widget>[
-            Row(
-              children: <Widget>[
-                Icon(
-                  isSocketConnected ? Icons.wifi_tethering : Icons.wifi_tethering_error,
-                  color: isSocketConnected ? const Color(0xFF0F766E) : const Color(0xFFB45309),
+            InkWell(
+              onTap: onToggleExpanded,
+              borderRadius: BorderRadius.circular(12),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 4),
+                child: Row(
+                  children: <Widget>[
+                    Icon(
+                      isSocketConnected ? Icons.wifi_tethering : Icons.wifi_tethering_error,
+                      color: isSocketConnected ? const Color(0xFF0F766E) : const Color(0xFFB45309),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        isSocketConnected ? 'Baglanti ayarlari' : 'Baglanti ayarlari',
+                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                              fontWeight: FontWeight.w700,
+                            ),
+                      ),
+                    ),
+                    Icon(
+                      isExpanded ? Icons.expand_less : Icons.expand_more,
+                      color: const Color(0xFF627D98),
+                    ),
+                  ],
                 ),
-                const SizedBox(width: 8),
-                Text(
-                  isSocketConnected ? 'Socket bagli' : 'Socket bagli degil',
-                  style: Theme.of(context).textTheme.titleMedium,
-                ),
-              ],
+              ),
             ),
-            const SizedBox(height: 10),
+            const SizedBox(height: 6),
             Text(
-              'Baglanti adreslerini burada yonetin. Socket sorunlu olsa bile API periyodik yenilenir.',
+              isSocketConnected ? 'Canli baglanti acik' : 'Baglanti bekleniyor',
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
                     color: const Color(0xFF627D98),
                   ),
             ),
-            const SizedBox(height: 16),
-            TextField(
-              controller: apiBaseUrlController,
-              keyboardType: TextInputType.url,
-              decoration: const InputDecoration(
-                labelText: 'API Base URL',
-                hintText: 'https://your-backend-domain.up.railway.app',
-                border: OutlineInputBorder(),
+            if (isExpanded) ...<Widget>[
+              const SizedBox(height: 12),
+              TextField(
+                controller: apiBaseUrlController,
+                keyboardType: TextInputType.url,
+                decoration: const InputDecoration(
+                  labelText: 'API Base URL',
+                  hintText: 'https://your-backend-domain.up.railway.app',
+                  border: OutlineInputBorder(),
+                ),
               ),
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: socketUrlController,
-              keyboardType: TextInputType.url,
-              decoration: const InputDecoration(
-                labelText: 'Socket URL',
-                hintText: 'https://your-backend-domain.up.railway.app',
-                border: OutlineInputBorder(),
+              const SizedBox(height: 10),
+              TextField(
+                controller: socketUrlController,
+                keyboardType: TextInputType.url,
+                decoration: const InputDecoration(
+                  labelText: 'Socket URL',
+                  hintText: 'https://your-backend-domain.up.railway.app',
+                  border: OutlineInputBorder(),
+                ),
               ),
-            ),
-            const SizedBox(height: 16),
-            SizedBox(
-              width: double.infinity,
-              child: FilledButton(
-                onPressed: isConnecting ? null : onConnectPressed,
-                child: Text(isConnecting ? 'Baglaniyor...' : 'Baglan ve Yenile'),
+              const SizedBox(height: 12),
+              SizedBox(
+                width: double.infinity,
+                child: FilledButton(
+                  onPressed: isConnecting ? null : onConnectPressed,
+                  child: Text(isConnecting ? 'Baglaniyor...' : 'Baglan ve Yenile'),
+                ),
               ),
-            ),
+            ],
           ],
         ),
       ),
@@ -547,21 +883,23 @@ class _MessageCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(14),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
         color: color.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(12),
       ),
       child: Text(
         message,
-        style: TextStyle(color: color, fontWeight: FontWeight.w600),
+        style: TextStyle(color: color, fontWeight: FontWeight.w600, fontSize: 13),
       ),
     );
   }
 }
 
 class _EmptyState extends StatelessWidget {
-  const _EmptyState();
+  const _EmptyState({required this.message});
+
+  final String message;
 
   @override
   Widget build(BuildContext context) {
@@ -577,7 +915,7 @@ class _EmptyState extends StatelessWidget {
           const Icon(Icons.thermostat_auto, size: 48, color: Color(0xFF64748B)),
           const SizedBox(height: 12),
           Text(
-            'Henuz Tzone verisi yok',
+            message,
             style: Theme.of(context).textTheme.titleMedium,
           ),
           const SizedBox(height: 8),
@@ -630,14 +968,14 @@ class _SectionHeader extends StatelessWidget {
           Expanded(
             child: Text(
               title,
-              style: Theme.of(context).textTheme.titleLarge?.copyWith(
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(
                     color: const Color(0xFF102A43),
                     fontWeight: FontWeight.w800,
                   ),
             ),
           ),
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
             decoration: BoxDecoration(
               color: const Color(0xFFEAF2F0),
               borderRadius: BorderRadius.circular(999),
@@ -672,17 +1010,17 @@ class _PrimaryMetric extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      width: 152,
-      padding: const EdgeInsets.all(14),
+      width: 122,
+      padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: color.withOpacity(0.10),
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(14),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
           Icon(icon, color: color, size: 20),
-          const SizedBox(height: 12),
+          const SizedBox(height: 8),
           Text(
             label,
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
@@ -690,10 +1028,10 @@ class _PrimaryMetric extends StatelessWidget {
                   fontWeight: FontWeight.w600,
                 ),
           ),
-          const SizedBox(height: 6),
+          const SizedBox(height: 4),
           Text(
             value,
-            style: Theme.of(context).textTheme.titleLarge?.copyWith(
+            style: Theme.of(context).textTheme.titleMedium?.copyWith(
                   color: const Color(0xFF102A43),
                   fontWeight: FontWeight.w800,
                 ),
@@ -713,10 +1051,10 @@ class _RawHexBlock extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(14),
+      padding: const EdgeInsets.all(10),
       decoration: BoxDecoration(
         color: const Color(0xFFF4F7FA),
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(14),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -728,14 +1066,14 @@ class _RawHexBlock extends StatelessWidget {
                   fontWeight: FontWeight.w700,
                 ),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 6),
           SelectableText(
             rawHex,
             style: const TextStyle(
               fontFamily: 'monospace',
-              fontSize: 12,
+              fontSize: 11,
               color: Color(0xFF334155),
-              height: 1.45,
+              height: 1.3,
             ),
           ),
         ],
@@ -754,9 +1092,9 @@ class _ReadingCard extends StatelessWidget {
     return Card(
       elevation: 0,
       color: Colors.white,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(22)),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
       child: Padding(
-        padding: const EdgeInsets.all(18),
+        padding: const EdgeInsets.all(14),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: <Widget>[
@@ -774,7 +1112,7 @@ class _ReadingCard extends StatelessWidget {
                 ),
               ],
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 12),
             SingleChildScrollView(
               scrollDirection: Axis.horizontal,
               child: Row(
@@ -785,21 +1123,21 @@ class _ReadingCard extends StatelessWidget {
                     icon: Icons.thermostat,
                     color: const Color(0xFFB45309),
                   ),
-                  const SizedBox(width: 10),
+                  const SizedBox(width: 8),
                   _PrimaryMetric(
                     label: 'Nem',
                     value: reading.humidityText,
                     icon: Icons.water_drop,
                     color: const Color(0xFF0E7490),
                   ),
-                  const SizedBox(width: 10),
+                  const SizedBox(width: 8),
                   _PrimaryMetric(
                     label: 'Pil',
                     value: reading.batteryText,
                     icon: Icons.battery_charging_full,
                     color: const Color(0xFF0F766E),
                   ),
-                  const SizedBox(width: 10),
+                  const SizedBox(width: 8),
                   _PrimaryMetric(
                     label: 'Isik',
                     value: reading.lightText,
@@ -809,10 +1147,10 @@ class _ReadingCard extends StatelessWidget {
                 ],
               ),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 12),
             Wrap(
-              spacing: 10,
-              runSpacing: 10,
+              spacing: 8,
+              runSpacing: 8,
               children: <Widget>[
                 _MetricChip(label: 'Kaynak', value: reading.deviceTypeText),
                 _MetricChip(label: 'RSSI', value: reading.rssiText),
@@ -822,7 +1160,7 @@ class _ReadingCard extends StatelessWidget {
               ],
             ),
             if (reading.rawHex.isNotEmpty) ...<Widget>[
-              const SizedBox(height: 16),
+              const SizedBox(height: 12),
               _RawHexBlock(rawHex: reading.rawHex),
             ],
           ],
@@ -844,30 +1182,92 @@ class _MetricChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
       decoration: BoxDecoration(
         color: const Color(0xFFEAF2F8),
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(12),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
         children: <Widget>[
           Text(
-            label,
+            '$label: ',
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
                   color: const Color(0xFF627D98),
                   fontWeight: FontWeight.w600,
                 ),
           ),
-          const SizedBox(height: 4),
           Text(
             value,
-            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                   color: const Color(0xFF102A43),
                   fontWeight: FontWeight.w700,
                 ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _G1ReadingCard extends StatelessWidget {
+  const _G1ReadingCard({
+    required this.reading,
+    required this.gatewayCount,
+    required this.beaconCount,
+  });
+
+  final G1Reading reading;
+  final int gatewayCount;
+  final int beaconCount;
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      elevation: 0,
+      color: Colors.white,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+      child: Padding(
+        padding: const EdgeInsets.all(14),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            Row(
+              children: <Widget>[
+                Expanded(
+                  child: Text(
+                    reading.typeText,
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.w800,
+                        ),
+                  ),
+                ),
+                Text(
+                  reading.timestampText,
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+              ],
+            ),
+            const SizedBox(height: 10),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: <Widget>[
+                _MetricChip(label: 'MAC', value: reading.macText),
+                _MetricChip(label: 'BLE Name', value: reading.bleNameText),
+                _MetricChip(label: 'RSSI', value: reading.rssiText),
+                _MetricChip(label: 'Gateway Free', value: reading.gatewayFreeText),
+                _MetricChip(label: 'Gateway Load', value: reading.gatewayLoadText),
+                _MetricChip(label: 'Gateway Kayit', value: '$gatewayCount'),
+                _MetricChip(label: 'Beacon Kayit', value: '$beaconCount'),
+              ],
+            ),
+            if (reading.rawData.isNotEmpty) ...<Widget>[
+              const SizedBox(height: 12),
+              _RawHexBlock(rawHex: reading.rawData),
+            ],
+          ],
+        ),
       ),
     );
   }
@@ -985,6 +1385,87 @@ class DeviceReading {
 
     final String text = value.toString().trim();
     return text.isEmpty ? null : text;
+  }
+}
+
+class G1Reading {
+  G1Reading({
+    required this.timestamp,
+    required this.type,
+    required this.mac,
+    required this.bleNo,
+    required this.bleName,
+    required this.rssi,
+    required this.rawData,
+    required this.gatewayFree,
+    required this.gatewayLoad,
+  });
+
+  final DateTime timestamp;
+  final String? type;
+  final String? mac;
+  final int? bleNo;
+  final String? bleName;
+  final double? rssi;
+  final String rawData;
+  final double? gatewayFree;
+  final double? gatewayLoad;
+
+  bool get isGateway => (type ?? '').trim().toLowerCase() == 'gateway';
+  String get timestampText => _formatDate(timestamp);
+  String get typeText => (type == null || type!.trim().isEmpty) ? 'Unknown' : type!.trim();
+  String get macText => mac == null || mac!.trim().isEmpty ? '-' : mac!.trim();
+  String get bleNameText => bleName == null || bleName!.trim().isEmpty ? '-' : bleName!.trim();
+  String get rssiText => rssi == null ? '-' : '${rssi!.toStringAsFixed(0)} dBm';
+  String get gatewayFreeText =>
+      gatewayFree == null ? '-' : '${gatewayFree!.toStringAsFixed(0)} MB';
+  String get gatewayLoadText => gatewayLoad == null ? '-' : gatewayLoad!.toStringAsFixed(2);
+
+  factory G1Reading.fromApi(Map<String, dynamic> json) {
+    return G1Reading(
+      timestamp: DateTime.tryParse((json['timestamp'] ?? '').toString()) ?? DateTime.now(),
+      type: _parseString(json['type']),
+      mac: _parseString(json['mac']),
+      bleNo: _parseInt(json['bleNo']),
+      bleName: _parseString(json['bleName']),
+      rssi: _parseNumber(json['rssi']),
+      rawData: (json['rawData'] ?? '').toString(),
+      gatewayFree: _parseNumber(json['gatewayFree']),
+      gatewayLoad: _parseNumber(json['gatewayLoad']),
+    );
+  }
+
+  static String? _parseString(dynamic value) {
+    if (value == null) {
+      return null;
+    }
+
+    final String text = value.toString().trim();
+    return text.isEmpty ? null : text;
+  }
+
+  static double? _parseNumber(dynamic value) {
+    if (value == null) {
+      return null;
+    }
+
+    if (value is num) {
+      return value.toDouble();
+    }
+
+    return double.tryParse(value.toString());
+  }
+
+  static int? _parseInt(dynamic value) {
+    if (value == null) {
+      return null;
+    }
+
+    if (value is int) {
+      return value;
+    }
+
+    return int.tryParse(value.toString());
   }
 }
 

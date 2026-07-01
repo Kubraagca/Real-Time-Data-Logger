@@ -1,5 +1,6 @@
 import { env } from '../config/env';
 import { isDatabaseConfigured, prisma } from '../config/prisma';
+import { firebaseNotificationService } from '../notifications/firebase-notification.service';
 import { G1ReadingEvent, tzoneGateway } from './tzone.gateway';
 import { TzoneDeviceSummary, TzoneReadingPayload } from './tzone.types';
 
@@ -231,6 +232,8 @@ export class TzoneService {
         }
       }
 
+      await firebaseNotificationService.notifyIfCriticalTemperature(payload);
+
       return {
         device: null,
         reading: {
@@ -288,6 +291,8 @@ export class TzoneService {
         tzoneGateway.broadcastTzoneReading(broadcastPayload);
       }
     }
+
+    await firebaseNotificationService.notifyIfCriticalTemperature(payload);
 
     return { device, reading };
   }

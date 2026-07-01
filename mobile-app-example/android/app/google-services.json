@@ -1,0 +1,48 @@
+{
+  "project_info": {
+    "project_number": "401364419570",
+    "project_id": "real-time-data-logger-25a20",
+    "storage_bucket": "real-time-data-logger-25a20.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:401364419570:android:8aaa9b5164feab9123a16b",
+        "android_client_info": {
+          "package_name": "com.data.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDf2t7Q-38LbiHrygUZapyW6vTcvKinBkQ"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:401364419570:android:25ee27e37e43555b23a16b",
+        "android_client_info": {
+          "package_name": "com.example.tzone_mobile_example"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDf2t7Q-38LbiHrygUZapyW6vTcvKinBkQ"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>RealTimeDataLogger - Proje Dokümanı</title>
+    <title>RealTimeDataLogger - Proje Dokumani</title>
     <style>
       :root {
         --bg: #07111f;
@@ -13,9 +13,13 @@
         --muted: #9fb0c9;
         --accent: #38bdf8;
         --accent-2: #22c55e;
+        --border: rgba(56, 189, 248, 0.16);
       }
 
-      * { box-sizing: border-box; }
+      * {
+        box-sizing: border-box;
+      }
+
       body {
         margin: 0;
         font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
@@ -25,21 +29,25 @@
       }
 
       .container {
-        max-width: 1100px;
+        max-width: 1160px;
         margin: 0 auto;
         padding: 32px 20px 60px;
       }
 
-      .hero, .card {
+      .hero,
+      .card {
         background: rgba(16, 28, 45, 0.92);
-        border: 1px solid rgba(56, 189, 248, 0.16);
+        border: 1px solid var(--border);
         border-radius: 18px;
         padding: 24px;
         box-shadow: 0 10px 36px rgba(0, 0, 0, 0.25);
         margin-top: 18px;
       }
 
-      .hero { margin-top: 0; }
+      .hero {
+        margin-top: 0;
+      }
+
       .badge {
         display: inline-block;
         padding: 6px 12px;
@@ -50,8 +58,29 @@
         margin-bottom: 10px;
       }
 
-      h1, h2, h3 { margin-top: 0; }
-      h2 { color: var(--accent); }
+      h1,
+      h2,
+      h3 {
+        margin-top: 0;
+      }
+
+      h2 {
+        color: var(--accent);
+      }
+
+      h3 {
+        color: var(--accent-2);
+      }
+
+      p,
+      li {
+        color: var(--text);
+      }
+
+      .muted {
+        color: var(--muted);
+      }
+
       .grid {
         display: grid;
         grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
@@ -59,18 +88,40 @@
         margin-top: 18px;
       }
 
-      .card h3 { color: var(--accent-2); }
-      .muted { color: var(--muted); }
-      ul { padding-left: 18px; }
-      code, pre {
-        background: rgba(255,255,255,0.08);
+      .protocol-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+        gap: 14px;
+        margin-top: 16px;
+      }
+
+      .mini-card {
+        background: var(--panel-2);
+        border-radius: 14px;
+        padding: 16px;
+      }
+
+      ul {
+        padding-left: 18px;
+      }
+
+      code,
+      pre {
+        background: rgba(255, 255, 255, 0.08);
         border-radius: 8px;
       }
-      code { padding: 2px 6px; color: #fef3c7; }
+
+      code {
+        padding: 2px 6px;
+        color: #fef3c7;
+      }
+
       pre {
         padding: 14px;
         overflow-x: auto;
         color: #dbeafe;
+        white-space: pre-wrap;
+        word-break: break-word;
       }
 
       .timeline {
@@ -86,7 +137,34 @@
         border-radius: 10px;
       }
 
-      .step strong { color: var(--accent-2); }
+      .step strong {
+        color: var(--accent-2);
+      }
+
+      .table-wrap {
+        overflow-x: auto;
+        margin-top: 14px;
+      }
+
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        min-width: 760px;
+      }
+
+      th,
+      td {
+        text-align: left;
+        padding: 12px 10px;
+        border-bottom: 1px solid rgba(159, 176, 201, 0.18);
+        vertical-align: top;
+      }
+
+      th {
+        color: var(--accent);
+        font-size: 0.95rem;
+      }
+
       .footer {
         margin-top: 22px;
         color: var(--muted);
@@ -98,126 +176,336 @@
     <div class="container">
       <section class="hero">
         <div class="badge">Realtime Data Logger</div>
-        <h1>Bu proje nasıl çalışır?</h1>
+        <h1>Bu proje nasil calisir?</h1>
         <p>
-          Bu sistem, Tzone TT18-4G-M cihazlarından gelen verileri toplar, işler,
-          veritabanına kaydeder ve canlı olarak kullanıcı arayüzlerine iletir.
-          Amaç, sensör verilerini düzenli, güvenilir ve anlık şekilde kullanılabilir hale getirmektir.
+          Bu depoda iki ayri cihaz ve iki ayri servis mantigi vardir. Birinci hat
+          Tzone sicaklik sensorlerinin TCP ile veri gonderdigi servistir. Ikinci hat
+          G1 gateway cihazlarinin HTTP veya MQTT ile veri gonderdigi servistir.
+          Bunlar ayni cihazin iki modu degil, birbirinden ayri urun ve ayri haberlesme
+          yapilaridir.
         </p>
       </section>
 
       <section class="card">
-        <h2>1. Projenin amacı</h2>
+        <h2>1. Projenin amaci</h2>
         <p class="muted">
-          Cihazlardan gelen ham verileri yakalamak, anlamlı değerlere çevirmek,
-          saklamak ve istemcilere yayınlamak için tasarlanmış bir veri akışı sistemidir.
+          Amac, Tzone servisini ve G1 servisini birbirine karistirmadan belgelemek;
+          her birinin veri alma yontemini, kullandigi protokolu, endpointlerini ve
+          istemcilere nasil veri sagladigini ayri ayri gostermektir.
+        </p>
+        <p class="muted">
+          Bu belgeyi okurken su mantikla ilerlemek gerekir: once veri cihazda olusur,
+          sonra backend'e gelir, backend bunu isler ve en sonda web veya mobil ekrana yollar.
+          Yani asil soru "hangi protokol kullanildi?" degil, "veri hangi noktadan cikip
+          hangi noktaya gidiyor?" sorusudur.
         </p>
       </section>
 
       <section class="card">
-        <h2>2. Temel bileşenler</h2>
+        <h2>2. Temel bilesenler</h2>
         <div class="grid">
           <div>
-            <h3>Backend</h3>
-            <p class="muted">Node.js + Express + TypeScript ile veri alma, işleme ve API servislerini sağlar.</p>
+            <h3>Tzone Servisi</h3>
+            <p class="muted">Tzone sensorlerinden gelen TCP paketlerini almak, parse etmek ve Tzone API cikisi uretmek icin kullanilir.</p>
           </div>
           <div>
-            <h3>TCP Sunucu</h3>
-            <p class="muted">Tzone cihazlarından gelen TCP paketlerini dinler ve ham veriyi toplar.</p>
+            <h3>G1 Servisi</h3>
+            <p class="muted">Gateway ve beacon verilerini HTTP veya MQTT uzerinden alip G1 API cikisi ureten ayri servis hattidir.</p>
           </div>
           <div>
-            <h3>Parser</h3>
-            <p class="muted">Gelen paketleri ayrıştırarak sıcaklık, nem, batarya ve benzeri değerleri çıkarır.</p>
+            <h3>Tzone TCP Dinleyici</h3>
+            <p class="muted">Sadece Tzone cihazlarindan gelen TCP baglantilarini dinler. G1 bu hatta dahil degildir.</p>
           </div>
           <div>
-            <h3>Veritabanı</h3>
-            <p class="muted">Prisma üzerinden kayıtların saklanmasını sağlar.</p>
+            <h3>G1 HTTP / MQTT Girisi</h3>
+            <p class="muted">Sadece G1 gateway tarafindan gelen JSON-LONG veya MQTT payloadlarini alir. Tzone bu hatta dahil degildir.</p>
           </div>
           <div>
-            <h3>Canlı Yayın</h3>
-            <p class="muted">Socket.IO ile anlık veri akışı sunar.</p>
+            <h3>Ayrik Parserlar</h3>
+            <p class="muted">Tzone parser'i TCP paket cozer, G1 parser'i JSON payload cozer. Kurallar ortak degildir.</p>
           </div>
           <div>
-            <h3>İstemciler</h3>
-            <p class="muted">Web panel veya mobil örnek uygulamalar bu verileri görüntüler.</p>
+            <h3>Istemciler</h3>
+            <p class="muted">Web panel ve Flutter uygulamasi her iki servisin cikisini backend API ve Socket.IO uzerinden ayri tablarda gosterir.</p>
           </div>
         </div>
       </section>
 
       <section class="card">
-        <h2>3. İş akışı</h2>
+        <h2>3. Senaryo anlatimi</h2>
+
+        <h3>Senaryo 1: Tzone verisi nasil ilerler?</h3>
         <div class="timeline">
           <div class="step">
-            <strong>Adım 1:</strong> Tzone cihazı backend tarafındaki TCP sunucusuna veri gönderir.
+            <strong>Baslangic:</strong> Tzone sicaklik sensoru kendi icinde olcum yapar. Sicaklik, nem, pil veya benzeri bilgiler cihazin icinde olusur.
           </div>
           <div class="step">
-            <strong>Adım 2:</strong> Backend gelen paketi alır, ham veriyi loglar ve parser ile işler.
+            <strong>Ilk durak:</strong> Bu veri Tzone cihazindan cikar ve internet uzerinden backend'deki Tzone TCP servisinin portuna gelir.
           </div>
           <div class="step">
-            <strong>Adım 3:</strong> İşlenen veri veritabanına kaydedilir.
+            <strong>Backend'de ne olur?</strong> Backend paketi oldugu gibi alir, ham veriyi kaybederim diye once loglar, sonra Tzone parser'i ile anlamli alanlari ayiklamaya calisir.
           </div>
           <div class="step">
-            <strong>Adım 4:</strong> Aynı veri Socket.IO üzerinden canlı olarak yayınlanır.
+            <strong>Sonra nereye gider?</strong> Ayrilan veri Tzone kaydi olarak saklanir. Ardindan ayni veri <code>tzone:reading</code> event'i ile canli yayina verilir.
           </div>
           <div class="step">
-            <strong>Adım 5:</strong> Web veya mobil istemci bu olayı dinleyerek ekranına yansıtır.
+            <strong>Kullanici nerede gorur?</strong> Web panel veya mobil uygulama bu Tzone kaydini ya API ile ceker ya da Socket.IO ile canli olarak alir.
+          </div>
+        </div>
+
+        <h3>Senaryo 2: G1 gateway verisi nasil ilerler?</h3>
+        <div class="timeline">
+          <div class="step">
+            <strong>Baslangic:</strong> G1 gateway etraftaki beacon veya kendi durum bilgilerini toplar. Ornegin RSSI, rawData, gatewayFree veya gatewayLoad gibi alanlar burada olusur.
+          </div>
+          <div class="step">
+            <strong>Ilk durak:</strong> Bu veri gateway'den cikar ve HTTP POST veya bazen MQTT ile backend'deki G1 servisine gelir.
+          </div>
+          <div class="step">
+            <strong>Backend'de ne olur?</strong> Backend G1 payload'ini alir, JSON olarak parse eder ve bunun gateway kaydi mi beacon kaydi mi oldugunu anlamaya calisir.
+          </div>
+          <div class="step">
+            <strong>Sonra nereye gider?</strong> Veri G1 kaydi olarak saklanir. Ardindan ayni veri <code>g1:reading</code> event'i ile canli yayina verilir.
+          </div>
+          <div class="step">
+            <strong>Kullanici nerede gorur?</strong> Web panel veya mobil uygulama bu G1 kaydini G1 endpoint'lerinden veya G1 Socket event'inden alir.
           </div>
         </div>
       </section>
 
       <section class="card">
-        <h2>4. Protokol özeti</h2>
+        <h2>4. Protokol ozeti</h2>
+        <p class="muted">
+          Tzone ve G1 ayni protokolun varyanti degildir. Asagidaki ozet, bu iki servisin
+          birbirinden ayri calistigini netlestirir.
+        </p>
+        <p class="muted">
+          Kisa ozetle: Tzone verisi "sensor -> Tzone TCP servisi -> Tzone kaydi -> Tzone ekrani"
+          yolundan gider. G1 verisi ise "gateway -> G1 HTTP/MQTT servisi -> G1 kaydi -> G1 ekrani"
+          yolundan gider.
+        </p>
+
+        <div class="protocol-grid">
+          <div class="mini-card">
+            <h3>Tzone Hatti</h3>
+            <ul>
+              <li><strong>Transport:</strong> TCP</li>
+              <li><strong>Varsayilan port:</strong> <code>18801</code></li>
+              <li><strong>Paket tipi:</strong> Binary veya ASCII</li>
+              <li><strong>Source:</strong> <code>tzone</code></li>
+              <li><strong>Canli event:</strong> <code>tzone:reading</code></li>
+            </ul>
+          </div>
+
+          <div class="mini-card">
+            <h3>G1 Gateway Hatti</h3>
+            <ul>
+              <li><strong>Birincil transport:</strong> HTTP POST</li>
+              <li><strong>Opsiyonel transport:</strong> MQTT</li>
+              <li><strong>Veri formati:</strong> JSON-LONG</li>
+              <li><strong>Source:</strong> <code>g1</code></li>
+              <li><strong>Canli event:</strong> <code>g1:reading</code></li>
+            </ul>
+          </div>
+
+          <div class="mini-card">
+            <h3>Istemci Hatti</h3>
+            <ul>
+              <li><strong>Ilk yukleme:</strong> REST API</li>
+              <li><strong>Canli akis:</strong> Socket.IO</li>
+              <li><strong>Web:</strong> HTTP GET + Socket.IO</li>
+              <li><strong>Mobil:</strong> HTTP GET + Socket.IO</li>
+              <li><strong>Dogrudan cihaza baglanti:</strong> Yok, istemci sadece ilgili servisin backend cikisina baglanir</li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Hat</th>
+                <th>Kim veri gonderiyor?</th>
+                <th>Protokol</th>
+                <th>Giris noktasi</th>
+                <th>Backend cikisi</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>Tzone</td>
+                <td>Tzone TT18-4G-M sicaklik sensoru</td>
+                <td>TCP binary / ASCII</td>
+                <td>Ayri Tzone TCP listener servisi</td>
+                <td>Tzone API ve <code>tzone:reading</code></td>
+              </tr>
+              <tr>
+                <td>G1 HTTP</td>
+                <td>Gateway cihazinin kendisi</td>
+                <td>HTTP POST JSON-LONG</td>
+                <td>Ayri G1 HTTP ingest servisi: <code>/gw/:gatewayMac/status</code> veya <code>/api/g1/http</code></td>
+                <td>G1 API ve <code>g1:reading</code></td>
+              </tr>
+              <tr>
+                <td>G1 MQTT</td>
+                <td>MQTT broker uzerinden gateway verisi</td>
+                <td>MQTT JSON</td>
+                <td>Ayri G1 MQTT subscribe servisi: <code>/gw/+/status</code> topic'i</td>
+                <td>G1 API ve <code>g1:reading</code></td>
+              </tr>
+              <tr>
+                <td>Web / Mobil</td>
+                <td>Web panel ve Flutter uygulamasi</td>
+                <td>REST + Socket.IO</td>
+                <td>HTTP API ve Socket.IO server</td>
+                <td>Ekranda gecmis kayit + canli akis</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="card">
+        <h2>5. Tzone icin daha acik anlatim</h2>
+        <p class="muted">
+          Tzone tarafini bir kargo akisi gibi dusunebiliriz. Paket cihazdan cikar, Tzone'a ayrilmis
+          servis kapisina gelir, backend icerde paketi acip icindeki bilgileri okur, sonra o bilgiyi
+          Tzone verisi olarak saklar ve kullanici ekranina yollar.
+        </p>
         <ul>
-          <li><strong>Giriş Protokolü:</strong> TCP</li>
-          <li><strong>Canlı İletişim:</strong> Socket.IO</li>
-          <li><strong>API:</strong> REST</li>
-          <li><strong>Veri Saklama:</strong> Prisma + veritabanı</li>
-          <li><strong>Olay Adı:</strong> <code>tzone:reading</code></li>
+          <li>Tzone cihazi backend'in TCP portuna baglanir. Varsayilan port <code>18801</code>'dir.</li>
+          <li>Backend paketi alir ve <code>rawHex</code> ile <code>asciiPreview</code> bilgisiyle birlikte loglar.</li>
+          <li>Parser veri tipini <code>binary</code>, <code>ascii</code> veya <code>unknown</code> olarak tahmin eder.</li>
+          <li>Binary paket uygun ise <code>imei</code>, <code>temperature</code>, <code>humidity</code>, <code>battery</code>, <code>light</code>, <code>rtcTime</code> ve <code>packetIndex</code> ayrilir.</li>
+          <li><code>packetIndex</code> varsa backend cihaza ACK yollar: <code>@ACK,&lt;packetIndex&gt;#</code></li>
+          <li>Parse edilemeyen veri de kaybolmaz; ham veri olarak yine saklanir.</li>
         </ul>
 
-        <h3>Örnek payload</h3>
+        <h3>Tzone'dan cikan alanlar</h3>
+        <ul>
+          <li><code>imei</code></li>
+          <li><code>temperature</code></li>
+          <li><code>humidity</code></li>
+          <li><code>light</code></li>
+          <li><code>battery</code></li>
+          <li><code>receivedAt</code></li>
+          <li><code>rawHex</code></li>
+          <li><code>packetIndex</code></li>
+        </ul>
+
+        <h3>Ornek Tzone event payload</h3>
         <pre>{
   "imei": "862938475612345",
   "source": "tzone",
   "temperature": 25.4,
-  "humidity": 60,
-  "battery": 88,
-  "light": 320,
-  "receivedAt": "2026-06-26T09:15:30.000Z"
+  "humidity": 60.0,
+  "light": 1,
+  "battery": 3.71,
+  "receivedAt": "2026-06-26T09:15:30.000Z",
+  "rawHex": "404441544123",
+  "packetIndex": 12
 }</pre>
       </section>
 
       <section class="card">
-        <h2>5. Ana endpointler</h2>
+        <h2>6. G1 icin daha acik anlatim</h2>
+        <p class="muted">
+          G1 tarafini da ayri bir kargo akisi gibi dusunmek gerekir. Burada veri Tzone gibi TCP paket
+          halinde degil, daha cok JSON kaydi olarak gelir. Gateway ne gorduyse veya ne olctuyse onu
+          G1 servisine yollar; backend de bunu G1 verisi olarak saklar ve G1 ekranina yollar.
+        </p>
         <ul>
-          <li><code>GET /health</code> - Sistem sağlığını gösterir.</li>
-          <li><code>GET /api/tzone/readings/latest</code> - Son veriyi döndürür.</li>
-          <li><code>GET /api/tzone/devices</code> - Cihaz listesini döndürür.</li>
-          <li><code>GET /api/tzone/devices/:imei/readings?limit=100</code> - Geçmiş verileri getirir.</li>
-          <li><code>POST /api/g1/http</code> - G1 gateway verilerini kabul eder.</li>
+          <li>G1 tarafinda veri birincil olarak HTTP POST ile gelir.</li>
+          <li>Gateway ayarinda tipik kullanim: <strong>Service Access = HTTP</strong>, <strong>Data Format = JSON-LONG</strong></li>
+          <li>Normal endpoint: <code>/gw/:gatewayMac/status</code></li>
+          <li>Alternatif test endpoint'i: <code>/api/g1/http</code></li>
+          <li>HTTP disinda ayni veri yapisi MQTT ile de alinabilir.</li>
+          <li>MQTT aciksa backend broker'a baglanir ve varsayilan olarak <code>/gw/+/status</code> topic'ine subscribe olur.</li>
+        </ul>
+
+        <h3>G1 parser hangi alanlari okur?</h3>
+        <ul>
+          <li><code>timestamp</code></li>
+          <li><code>type</code></li>
+          <li><code>mac</code></li>
+          <li><code>bleNo</code></li>
+          <li><code>bleName</code></li>
+          <li><code>rssi</code></li>
+          <li><code>rawData</code></li>
+          <li><code>gatewayFree</code></li>
+          <li><code>gatewayLoad</code></li>
+          <li>opsiyonel olarak <code>temperature</code>, <code>humidity</code>, <code>battery</code></li>
+        </ul>
+
+        <h3>G1 veri yorumu</h3>
+        <ul>
+          <li><code>type = "Gateway"</code> ise bu satir gateway durum bilgisidir.</li>
+          <li>Diger tipler beacon veya BLE tarama kaydi gibi ele alinir.</li>
+          <li><code>mac</code> alani bu tarafta cihaz kimligi olarak kullanilir.</li>
+          <li><code>rawData</code> beacon ham datasidir ve arayuzde gosterilebilir.</li>
+        </ul>
+
+        <h3>Ornek G1 payload</h3>
+        <pre>[
+  {
+    "timestamp": "2026-01-21T05:51:02.183Z",
+    "type": "Gateway",
+    "mac": "AC233FC1CE60",
+    "gatewayFree": 96,
+    "gatewayLoad": 0.12
+  },
+  {
+    "timestamp": "2026-01-21T05:51:05.407Z",
+    "type": "Unknown",
+    "mac": "1D0C3C98FA38",
+    "bleNo": 0,
+    "bleName": "",
+    "rssi": -35,
+    "rawData": "1EFF060001092002651416D5B7EE1C2F1FB30C54985490054A17AE79D5F0BF"
+  }
+]</pre>
+      </section>
+
+     
+
+      <section class="card">
+        <h2>8. API ve Socket cikislari</h2>
+        <h3>REST endpointleri</h3>
+        <ul>
+          <li><code>GET /health</code> - Sistem sagligi, database, G1 MQTT ve HTTP durum bilgisini doner.</li>
+          <li><code>GET /api/tzone/readings/latest</code> - Son Tzone kayitlarini doner.</li>
+          <li><code>GET /api/tzone/devices</code> - Tzone cihaz listesi ve online durumunu doner.</li>
+          <li><code>GET /api/tzone/devices/:imei/readings?limit=100</code> - Tek Tzone cihaz gecmisi.</li>
+          <li><code>POST /api/g1/http</code> - Alternatif G1 HTTP ingest endpoint'i.</li>
+          <li><code>POST /gw/:gatewayMac/status</code> - Gateway'in normal veri gonderdigi endpoint.</li>
+          <li><code>GET /api/g1/readings/latest</code> - Son gateway ve beacon kayitlarini doner.</li>
+          <li><code>GET /api/g1/devices</code> - G1 cihaz listesi ve ozetlerini doner.</li>
+          <li><code>GET /api/g1/devices/:imei/readings?limit=100</code> - Tek G1 cihaz gecmisi.</li>
+        </ul>
+
+        <h3>Socket.IO eventleri</h3>
+        <ul>
+          <li><code>tzone:reading</code> - Tzone sensorunden gelen yeni tekil kayit</li>
+          <li><code>g1:reading</code> - Gateway veya beacon tarafindan gelen yeni tekil kayit</li>
         </ul>
       </section>
 
       <section class="card">
-        <h2>6. Çalıştırma mantığı</h2>
+        <h2>9. Web ve mobil istemci mantigi</h2>
+        <ul>
+          <li>Web panel ve Flutter uygulamasi Tzone cihazina veya gateway'e direkt baglanmaz.</li>
+          <li>Tzone verisi Tzone endpoint ve event'lerinden, G1 verisi G1 endpoint ve event'lerinden alinir.</li>
+          <li>Ilk ekran yuklenisinde son kayitlar HTTP GET ile cekilir.</li>
+          <li>Yeni kayitlar ilgili servis event'i ile Socket.IO uzerinden anlik ekrana duser.</li>
+          <li>Bu nedenle Tzone tarafi calisirken G1 tarafi kapali olabilir veya tersi de olabilir.</li>
+        </ul>
         <p class="muted">
-          Proje genel olarak iki ana iş yükü taşır: cihaz verisini almak ve bu veriyi kullanıcıya taşımak.
-          Bu nedenle backend hem alıcı hem işleyici hem de sunucu rolünü üstlenir.
+          Yani kullanicinin gordugu ekran en sondaki duraktir. Veri once cihazda dogar, sonra backend'e gelir,
+          backend onu ilgili servise koyar, en son web veya mobil bunu gorur.
         </p>
       </section>
 
-      <section class="card">
-        <h2>7. Notlar</h2>
-        <ul>
-          <li>Parser henüz ilk sürüm olduğundan bazı paketler ham veri olarak da saklanabilir.</li>
-          <li>Önemli paketlerin formatı netleşince ayrıştırma kuralları geliştirilebilir.</li>
-          <li>İsterseniz bu belgeyi daha sonra cihaz protokolü formatına göre genişletebilirsiniz.</li>
-        </ul>
-      </section>
-
-      <div class="footer">
-        Bu belge, projenin çalışma mantığını tek bir sayfada anlatmak için hazırlanmıştır.
-      </div>
+    
     </div>
   </body>
 </html>

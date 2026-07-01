@@ -111,6 +111,22 @@ Payload ornegi:
 }
 ```
 
+## Firebase kritik sicaklik bildirimi
+
+`tzone` verisinde sicaklik `TZONE_CRITICAL_TEMP_C` degerine esit veya buyuk oldugunda
+backend Firebase Cloud Messaging uzerinden `FIREBASE_ALERT_TOPIC` topic'ine bildirim yollar.
+
+Gerekli ayarlar:
+
+- Android Firebase dosyasi: `mobile-app-example/android/app/google-services.json`
+- Backend `.env` alanlari:
+  - `FIREBASE_PROJECT_ID`
+  - `FIREBASE_CLIENT_EMAIL`
+  - `FIREBASE_PRIVATE_KEY`
+  - `FIREBASE_ALERT_TOPIC`
+  - `TZONE_CRITICAL_TEMP_C`
+  - `TZONE_CRITICAL_ALERT_COOLDOWN_MINUTES`
+
 ## TCP log davranisi
 
 Ilk asamada parser netlesene kadar backend her paketi su bilgilerle loglar:

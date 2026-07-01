@@ -1,5 +1,6 @@
 import { Router } from 'express';
 
+import { firebaseNotificationService } from '../notifications/firebase-notification.service';
 import { tzoneService } from './tzone.service';
 
 const router = Router();
@@ -36,6 +37,15 @@ router.get('/api/tzone/devices/:imei/readings', async (request, response, next) 
     );
 
     response.json(readings);
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.post('/api/tzone/notifications/test', async (_request, response, next) => {
+  try {
+    const result = await firebaseNotificationService.sendTestNotification();
+    response.json(result);
   } catch (error) {
     next(error);
   }

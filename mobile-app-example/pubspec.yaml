@@ -11,6 +11,8 @@ dependencies:
   flutter:
     sdk: flutter
   cupertino_icons: ^1.0.8
+  firebase_core: ^4.1.0
+  firebase_messaging: ^16.0.1
   http: ^1.2.2
   socket_io_client: ^3.1.2
 
