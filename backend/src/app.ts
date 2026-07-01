@@ -26,4 +26,18 @@ app.get('/health', (_request, response) => {
 app.use(g1HttpRoutes);
 app.use(tzoneRoutes);
 
+app.use(
+  (
+    error: unknown,
+    _request: express.Request,
+    response: express.Response,
+    _next: express.NextFunction
+  ) => {
+    console.error('[HTTP] Unhandled error', error);
+
+    const message = error instanceof Error ? error.message : 'Internal Server Error';
+    response.status(500).json({ error: message });
+  }
+);
+
 export default app;

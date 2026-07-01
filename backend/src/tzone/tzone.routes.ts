@@ -47,6 +47,7 @@ router.post('/api/tzone/notifications/test', async (_request, response, next) =>
     const result = await firebaseNotificationService.sendTestNotification();
     response.json(result);
   } catch (error) {
+    console.error('[FCM] Test notification failed', error);
     next(error);
   }
 });
